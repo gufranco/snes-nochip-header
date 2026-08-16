@@ -1,0 +1,63 @@
+{
+  "canonical": {
+    "form": "one file, no copier header, exactly 12582912 bytes",
+    "note": "A 512 byte copier header and a Game Doctor split set both describe the same bytes. Strip or join first, then compare."
+  },
+  "artifacts": [
+    {
+      "name": "Star Ocean, Japanese, S-DD1 removed, 96 Mbit",
+      "language": "Japanese",
+      "filename": "star-ocean-jp-nochip-96mbit.sfc",
+      "declares": {
+        "chipset": "0x45",
+        "coprocessor": "S-DD1",
+        "rom_size": "0x0D",
+        "map": "0x32"
+      },
+      "accepted": [
+        {
+          "size": 12582912,
+          "crc32": "4DBE75BE",
+          "sha256": "e5ba9bef71c8ea31ce9650b90a60245c3434ff679475f847903011bf69e6d338"
+        }
+      ],
+      "repaired": {
+        "size": 12582912,
+        "crc32": "4CDE067C",
+        "sha256": "37131fc112149dc7946c229ade1e226aebc4e2749edf7cf9470bff6952760924"
+      },
+      "provenance": "Measured on this machine from the decompressed 96 Mbit build, read as a single file with no copier header."
+    },
+    {
+      "name": "Star Ocean, English DeJap 1.0, S-DD1 removed, 96 Mbit",
+      "language": "English, DeJap 1.0",
+      "filename": "star-ocean-en-nochip-96mbit.sfc",
+      "declares": {
+        "chipset": "0x45",
+        "coprocessor": "S-DD1",
+        "rom_size": "0x0D",
+        "map": "0x32"
+      },
+      "accepted": [
+        {
+          "size": 12582912,
+          "crc32": "B1D82240",
+          "sha256": "1bcb3b8b58f19a91540aeb5ca975fe2386ca0b55a5ff924be6a3514010b2e5c3"
+        }
+      ],
+      "repaired": {
+        "size": 12582912,
+        "crc32": "6DB1C7D3",
+        "sha256": "32bab94ed1abc94a3b0bc0e1315c88a759da82b995e4ab0f0d2970afe94a4ee5"
+      },
+      "provenance": "Measured on this machine from a twelve part Game Doctor set, joined with the copier header stripped from the first part only."
+    }
+  ],
+  "not_this": [
+    {
+      "name": "Star Ocean, Japanese, retail",
+      "size": 6291456,
+      "why": "The retail cartridge still needs the chip, so its header is correct as it stands. Repairing it would be a lie."
+    }
+  ]
+}
