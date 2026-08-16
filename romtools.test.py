@@ -1,4 +1,5 @@
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -66,6 +67,89 @@ class JoinTest(unittest.TestCase):
         joined = romtools.join_parts([b"A" * 0x8000, b"B" * 0x8000])
 
         self.assertEqual(len(joined), 0x10000)
+
+
+class SourceTest(unittest.TestCase):
+    def test_a_plain_file_is_read_as_itself(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "image.sfc"
+            source.write_bytes(b"A" * 0x8000)
+
+            self.assertEqual(romtools.read_source(source), b"A" * 0x8000)
+
+    def test_a_plain_file_loses_its_copier_header(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "image.sfc"
+            source.write_bytes(bytes(512) + b"A" * 0x8000)
+
+            self.assertEqual(romtools.read_source(source), b"A" * 0x8000)
+
+    def test_a_folder_of_numbered_parts_is_joined_in_name_order(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "SF96SOEB.078").write_bytes(b"B" * 0x8000)
+            (root / "SF96SOEA.078").write_bytes(bytes(512) + b"A" * 0x8000)
+
+            self.assertEqual(romtools.read_source(root), b"A" * 0x8000 + b"B" * 0x8000)
+
+    def test_a_folder_with_parts_in_subfolders_is_joined_too(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "Disk 01").mkdir()
+            (root / "Disk 02").mkdir()
+            (root / "Disk 01" / "SETA.078").write_bytes(bytes(512) + b"A" * 0x8000)
+            (root / "Disk 02" / "SETB.078").write_bytes(b"B" * 0x8000)
+
+            self.assertEqual(romtools.read_source(root), b"A" * 0x8000 + b"B" * 0x8000)
+
+    def test_a_folder_with_nothing_recognisable_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "notes.txt").write_text("nothing here")
+
+            with self.assertRaises(ValueError):
+                romtools.read_source(Path(folder))
+
+    def test_the_parts_of_a_folder_are_listed_in_name_order(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in ("SETC.078", "SETA.078", "SETB.078"):
+                (root / name).write_bytes(b"x")
+
+            self.assertEqual(
+                [p.name for p in romtools.parts_in(root)], ["SETA.078", "SETB.078", "SETC.078"]
+            )
+
+    def test_a_file_extension_that_is_not_three_digits_is_not_a_part(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "readme.txt").write_text("x")
+            (root / "image.sfc").write_bytes(b"x")
+
+            self.assertEqual(romtools.parts_in(root), [])
+
+
+class FormTest(unittest.TestCase):
+    def test_a_bare_file_reports_bare(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "image.sfc"
+            source.write_bytes(b"A" * 0x8000)
+
+            self.assertEqual(romtools.source_form(source), "bare")
+
+    def test_a_headered_file_reports_the_copier_header(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "image.sfc"
+            source.write_bytes(bytes(512) + b"A" * 0x8000)
+
+            self.assertEqual(romtools.source_form(source), "copier header")
+
+    def test_a_folder_reports_how_many_parts_it_joined(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in ("SETA.078", "SETB.078", "SETC.078"):
+                (root / name).write_bytes(b"x" * 0x8000)
+
+            self.assertEqual(romtools.source_form(root), "3 part set")
 
 
 class IdentityTest(unittest.TestCase):

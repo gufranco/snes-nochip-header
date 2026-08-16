@@ -37,8 +37,8 @@ def match_size(size):
     ]
 
 
-def diagnose(data):
-    form = "copier header" if romtools.has_copier_header(data) else "bare"
+def diagnose(data, form=None):
+    form = form or ("copier header" if romtools.has_copier_header(data) else "bare")
     bare = romtools.strip_header(data)
     identity = romtools.identity(bare)
     found = match_digest(identity["sha256"])
@@ -81,7 +81,7 @@ def main(argv):
     if len(argv) != 2:
         print("usage: identify.py <image>")
         return 2
-    print(explain(diagnose(Path(argv[1]).read_bytes())))
+    print(explain(diagnose(romtools.read_source(argv[1]), romtools.source_form(argv[1]))))
     return 0
 
 

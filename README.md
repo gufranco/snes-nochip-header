@@ -11,7 +11,7 @@
 
 </div>
 
-**4** modules · **60** tests · **18** coprocessor values recognised · **12** bytes changed on a 96 Mbit image · **zero** dependencies
+**4** modules · **70** tests · **18** coprocessor values recognised · **12** bytes changed on a 96 Mbit image · **zero** dependencies
 
 ---
 
@@ -90,6 +90,16 @@ python3 fix.py "Star Ocean (J) no S-DD1 96Mbit.sfc"
 python3 fix.py "Star Ocean (J) no S-DD1 96Mbit.sfc" star-ocean-fixed.sfc
 ```
 
+### Or point it at a split set
+
+```bash
+python3 fix.py "Star Ocean (English DeJap) [no S-DD1 96Mbit]" star-ocean-en-fixed.sfc
+```
+
+Give it a folder and it joins the numbered parts in name order, taking the copier header off the first
+one only, then works on the result. A twelve floppy Game Doctor set and the single file it was split
+from are the same image, and both reach the same digest.
+
 ### Verify what you got
 
 ```bash
@@ -105,7 +115,7 @@ The last line reads `already repaired`, with the name of the image it matched. T
 | [`fix.py`](fix.py) | The command. Identifies, reports, repairs, and reports again |
 | [`header.py`](header.py) | Finds every cartridge header, reads the fields, rewrites the chipset, size and checksum |
 | [`identify.py`](identify.py) | Matches a digest against the manifest and explains what was found |
-| [`romtools.py`](romtools.py) | Copier headers, split sets, and the size, CRC32 and SHA-256 of an image |
+| [`romtools.py`](romtools.py) | Reads a file or a folder of parts, strips copier headers, and measures size, CRC32 and SHA-256 |
 
 ## What it will not do
 
@@ -119,7 +129,7 @@ It also refuses work that would be a lie. A retail cartridge that still needs it
 for module in *.test.py; do python3 "$module"; done
 ```
 
-Sixty tests, no network, no fixtures larger than a synthetic 1 MB image built in memory.
+Seventy tests, no network, no fixtures larger than a synthetic 1 MB image built in memory.
 
 Three of them are acceptance tests against a real image and skip unless you point them at one:
 

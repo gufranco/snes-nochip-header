@@ -43,10 +43,14 @@ def main(argv):
         return 2
 
     source = Path(argv[1])
-    image = romtools.strip_header(source.read_bytes())
+    try:
+        image = romtools.read_source(source)
+    except (ValueError, OSError) as error:
+        print(f"  refused: {error}", file=sys.stderr)
+        return 1
 
     print(f"{source.name}")
-    print(identify.explain(identify.diagnose(source.read_bytes())))
+    print(identify.explain(identify.diagnose(image, romtools.source_form(source))))
 
     try:
         wanted = needs_repair(image)
