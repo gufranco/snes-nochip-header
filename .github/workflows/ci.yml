@@ -49,8 +49,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-26]
+    env:
+      PYTHONPATH: .:packages/snes-mapper
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - uses: actions/setup-python@v7
         with:
@@ -59,12 +63,24 @@ jobs:
       - name: Run every test module
         run: |
           failed=0
-          for module in *.test.py; do
+          for module in romimage/*.test.py conformance/*.test.py; do
             echo "::group::${module}"
             python3 "${module}" || failed=1
             echo "::endgroup::"
           done
           exit "${failed}"
+
+      - name: Replay the corpus
+        run: python3 conformance/corpus.py
+
+      - name: Coverage, which fails below 100%
+        run: |
+          pip install coverage
+          python3 -m coverage erase
+          for module in romimage/*.test.py conformance/*.test.py; do
+            python3 -m coverage run -a "${module}" >/dev/null
+          done
+          python3 -m coverage report
 
   release:
     name: release

@@ -1,7 +1,7 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["build", "validated", "validated-v2", "validated-v3"]
+extend-exclude = ["packages"]
 
 [tool.ruff.lint]
 select = [
@@ -29,4 +29,25 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"*.test.py" = ["PLR2004"]
+# A test file sits beside the module it covers and is named after it, so its
+# module name carries a dot that N999 rejects. The layout is deliberate: a
+# module and its tests are read together.
+"*.test.py" = ["PLR2004", "N999"]
+# The census is a command line tool. Printing is its output, not a stray debug
+# statement left behind, and routing it through a logger would put a level and a
+# timestamp in front of a report meant to be read by a person.
+"conformance/*.py" = ["T201"]
+
+[tool.coverage.run]
+source = ["romimage", "conformance"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_also = [
+  # The command line guard hands argv to a function that is itself tested, so
+  # there is nothing behind it left to exercise. Importing the module to cover
+  # the guard would run the tool rather than test it.
+  'if __name__ == "__main__":',
+]

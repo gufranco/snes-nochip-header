@@ -1,72 +1,96 @@
 <div align="center">
 
-<strong>A SNES image with the coprocessor removed still says it needs one. This corrects the cartridge header, and proves which image it corrected.</strong>
+<h1>SNES ROM Image</h1>
+
+<strong>A cartridge image as a file: what the dumper added, what it says about itself, and how to change that.</strong>
 
 <br>
 <br>
 
-[![ci](https://github.com/gufranco/snes-nochip-header/actions/workflows/ci.yml/badge.svg)](https://github.com/gufranco/snes-nochip-header/actions/workflows/ci.yml)
-[![release](https://img.shields.io/github/v/release/gufranco/snes-nochip-header?sort=semver)](https://github.com/gufranco/snes-nochip-header/releases)
-[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![CI](https://github.com/gufranco/snes-rom-image-python/actions/workflows/ci.yml/badge.svg)](https://github.com/gufranco/snes-rom-image-python/actions/workflows/ci.yml)
+[![Corpus](https://img.shields.io/badge/corpus-484%20%2F%20484-brightgreen)](#the-corpus-and-why-it-can-ship)
+[![Cartridges](https://img.shields.io/badge/measured%20across-7%2C317%20cartridges-blue)](#what-a-real-library-actually-contains)
+[![Coverage](https://img.shields.io/badge/coverage-100%25%20statement%20%2B%20branch-brightgreen)](#tests)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
 
-**4** modules · **70** tests · **18** coprocessor values recognised · **12** bytes changed on a 96 Mbit image · **zero** dependencies
+<p align="center">
+  <a href="#quick-start">Quick start</a> &nbsp;|&nbsp;
+  <a href="#the-mistakes-this-exists-to-stop">The mistakes</a> &nbsp;|&nbsp;
+  <a href="#the-corpus-and-why-it-can-ship">Why the corpus is legal</a> &nbsp;|&nbsp;
+  <a href="#what-a-real-library-actually-contains">What a library contains</a> &nbsp;|&nbsp;
+  <a href="https://github.com/gufranco/snes-rom-image-python/issues">Issues</a>
+</p>
+
+**484** declarations, **0** failures · **4** properties checked on every one of **7,317** cartridges · **169** tests · **100%** statement and branch coverage
+
+```python
+from romimage import dump, rewrite
+
+image = dump.read("game.smc")
+
+rewrite.declare_rom_only(image)
+# every mirror of the header updated, checksum recomputed over the result
+```
 
 ---
 
-```console
-$ python3 fix.py star-ocean-jp-nochip-96mbit.sfc fixed.sfc
-star-ocean-jp-nochip-96mbit.sfc
-  size    12,582,912 bytes, read as bare
-  crc32   4DBE75BE
-  sha256  e5ba9bef71c8ea31ce9650b90a60245c3434ff679475f847903011bf69e6d338
-  header at 0x007fc0  'Star Ocean'  map 32  chipset 45 (S-DD1)  size 0D
-  header at 0xa07fc0  'Star Ocean'  map 32  chipset 45 (S-DD1)  size 0D
-  known   Star Ocean, Japanese, S-DD1 removed, 96 Mbit
-
-fixed.sfc
-  size    12,582,912 bytes, read as bare
-  crc32   4CDE067C
-  sha256  37131fc112149dc7946c229ade1e226aebc4e2749edf7cf9470bff6952760924
-  header at 0x007fc0  'Star Ocean'  map 32  chipset 00 (none)  size 0E
-  header at 0xa07fc0  'Star Ocean'  map 32  chipset 00 (none)  size 0E
-  already repaired: Star Ocean, Japanese, S-DD1 removed, 96 Mbit
-  12 bytes changed, all inside the cartridge headers
-```
-
 ## The problem
 
-Several SNES games shipped with a coprocessor on the cartridge. Star Ocean carries an S-DD1, which decompresses graphics on the fly, and no flash cart or copier without that chip can run the game as it stands. The community answer is to decompress the graphics ahead of time and expand the image, which works: the chip is no longer needed.
+A file on disk is not a cartridge image, and the difference is invisible.
 
-What those expanded images do not do is say so. Byte `$16` of the cartridge header still declares `0x45`, the S-DD1, and byte `$17` still declares the size the image used to be. Emulators and flash carts read that header to decide what hardware to present. Being told to enable a chip that is not there, for an image that is a third larger than advertised, is a lie the loader has no way to detect.
+A copier writes 512 bytes in front of the image describing what it just read, shifting every offset in the file by an amount that appears nowhere in the file. A backup unit splits the image across numbered files, of which only the first carries that stub. A cartridge repeats its header in several places, and tools disagree about which copy they read.
 
-## What it changes
+Each of those is silent. A patch written at a known address into a dump with a stub still attached lands 512 bytes early, in the middle of something else, and the build succeeds. A header rewritten in one mirror produces an image that works in the tool it was tested in and not on the machine it was built for.
 
-Twelve bytes on a 96 Mbit image, all of them inside a cartridge header. Nothing else in the file is touched, and a test asserts exactly that.
+## The solution
 
-| Field | Offset | Before | After | Why |
-|:------|:-------|:-------|:------|:----|
-| Chipset | `$16` | `0x45`, S-DD1 | `0x00`, ROM only | The chip was removed; the header should agree |
-| ROM size | `$17` | `0x0D`, 8 MB | `0x0E`, 16 MB | The rounded-up power of two that covers 12 MB |
-| Checksum | `$1E` | stale | recomputed | Every header copy carries the same new pair |
-| Complement | `$1C` | stale | recomputed | `checksum ^ 0xFFFF`, verified by a test |
+Answer the four questions in the order they have to be asked, and check the answers against a real library.
 
-Both header copies get the change. Star Ocean's 96 Mbit build carries one at `$007FC0` and a mirror at `$A07FC0`, and repairing only the first leaves a loader free to read the other.
+| Module | Question |
+|:-------|:---------|
+| [`dump`](romimage/dump.py) | What did the dumping device add or split off |
+| [`identity`](romimage/identity.py) | What makes this file itself, and which value decides |
+| [`rewrite`](romimage/rewrite.py) | What does the cartridge say, and how is that changed safely |
+| [`manifest`](romimage/manifest.py) | When a reader supplies the wrong file, which wrong is it |
 
-## Identity, not guesswork
+Finding a header is not this package's job. [`snes-mapper`](https://github.com/gufranco/snes-mapper-python) does that, measured against the same library, and this depends on it rather than carrying a second opinion. An earlier version did carry one, and the library disagreed with it on **0** cartridges before the two were made to share an answer.
 
-A header repair is only safe on an image that is what you think it is, so the tool identifies before it writes. [`artifacts.manifest.json`](artifacts.manifest.json) records, for each known image, the exact size, CRC32 and SHA-256 before the repair and the SHA-256 it must reach after.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-| Value | Job | Decides accept or reject |
-|:------|:----|:------------------------:|
-| Size | Rejects the wrong file for one `stat` | No |
-| CRC32 | Cross-reference against community databases | No |
-| SHA-256 | The accept or reject decision | Yes |
+### Every mirror, not the first
 
-The manifest also names the canonical form the digests describe, which matters more than it sounds: the same bytes appear as a bare file, as a file with a 512 byte copier header, and as a twelve part Game Doctor set. All three are the same image and only one of them hashes to the recorded value. [`romtools.py`](romtools.py) strips and joins so the comparison happens on the canonical form.
+A header repeats across the image. Updating one copy is the bug that only appears on hardware.
 
-When a digest is not recognised, the tool says which case it is rather than printing a mismatch and stopping: already repaired, right size and different contents, or nothing this manifest knows.
+</td>
+<td width="50%" valign="top">
+
+### The checksum covers itself
+
+The four bytes holding it count as `FF FF 00 00` whatever they hold. Nothing else resolves the circularity.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### One value decides
+
+SHA-256 accepts or rejects. CRC32, MD5 and SHA-1 are published to look up, never to decide.
+
+</td>
+<td width="50%" valign="top">
+
+### A miss is a diagnosis
+
+Stub attached, set not joined, known bad dump, right size and wrong content. Each has a different fix.
+
+</td>
+</tr>
+</table>
 
 ## Quick start
 
@@ -74,83 +98,238 @@ When a digest is not recognised, the tool says which case it is rather than prin
 
 | Tool | Version | Install |
 |:-----|:--------|:--------|
-| Python | 3.12 or newer | [python.org](https://www.python.org/downloads/) |
+| Python | >= 3.12 | [python.org](https://www.python.org/downloads/) |
 
-Nothing else. No packages, no virtual environment.
-
-### Inspect an image without changing it
+### Setup
 
 ```bash
-python3 fix.py "Star Ocean (J) no S-DD1 96Mbit.sfc"
+git clone --recurse-submodules https://github.com/gufranco/snes-rom-image-python.git
+cd snes-rom-image-python
+export PYTHONPATH=".:packages/snes-mapper"
 ```
 
-### Repair it
+The header reader is a submodule rather than a copied file, which is the whole point: this package rewrites headers and that one finds them, and a second copy of those offsets is a second thing to keep true.
+
+### Verify
 
 ```bash
-python3 fix.py "Star Ocean (J) no S-DD1 96Mbit.sfc" star-ocean-fixed.sfc
+python3 conformance/corpus.py
+#   484 declarations from corpus.json
+#   measured across 7,317 cartridges
+#   484 agreed, 0 did not
 ```
 
-### Or point it at a split set
+## The mistakes this exists to stop
+
+### A copier stub shifts every offset in the file
+
+```python
+from romimage import dump
+
+len(dump.read("game.smc")) - len(open("game.smc", "rb").read())
+# -512, and a patch applied without this lands in the wrong place
+```
+
+Detected by length rather than content, because the stub's content is not standardised. The same test decides where a header reader looks, so it is imported from that package rather than restated.
+
+### A split set is one cartridge in several files
+
+```python
+dump.read("game-parts/")
+# the parts joined in name order, with the stub off only the first
+```
+
+The sort is case-insensitive, because the device wrote the names in upper case and half the world has renamed them since.
+
+### The header is mirrored, and one copy is not enough
+
+```python
+from romimage import rewrite
+
+rewrite.mirrors(image)
+# [0x7FC0, 0x87FC0, 0x107FC0], and all of them have to change
+```
+
+A mirror exists because the same bank is visible at more than one address, so every copy is byte-identical to the first. That makes the search exact, and a run of text that merely resembles a title cannot match.
+
+### The checksum covers the bytes that store it
+
+```python
+rewrite.checksum(rewrite.declare_rom_only(image)) == written_value
+# True, because the four checksum bytes count as FF FF 00 00
+```
+
+The sum is taken over the whole image including the fields holding the result, which cannot be known before the sum. Zero them, add `0x01FE` per mirror, and the circularity resolves.
+
+### A rewrite in progress is not a cartridge
+
+```python
+rewrite.checksum(half_written, places)
+# the mirrors already found, not the mirrors of a half-written header
+```
+
+Clearing the coprocessor byte and correcting the size costs a header two of the four signals a reader scores it on, so for the moment before the new checksum is written it is less recognisable than it was. Re-deriving the mirrors from that intermediate finds none of them, and the sum comes out short by exactly one header's worth of the convention.
+
+### The size byte is an exponent
+
+```python
+rewrite.size_byte(0x400000)
+# 12, not 4096 and not 4
+```
+
+An image that grew past a power of two and kept its old byte declares itself smaller than it is, and a machine that trusts the declaration never reads the rest.
+
+### One digest decides, and the others are for looking up
+
+```python
+from romimage import identity
+
+identity.AUTHORITATIVE
+# 'sha256'
+```
+
+CRC32 is a 32-bit error code. MD5 and SHA-1 are collision-broken. All three are published so a reader can find their copy in a database that still indexes by them, and none of them is allowed to accept a file.
+
+## What a real library actually contains
+
+Measured across **7,317** cartridges, with 262 refused for carrying no readable header:
+
+| Measurement | Value |
+|:------------|------:|
+| Distinct declarations | 484 |
+| Distinct image sizes | 108 |
+| Distinct chipset bytes | 34 |
+| Cartridges that would need rewriting | 3,786 |
+| Disagreements with the header reader | 0 |
+
+Four properties were checked on every cartridge, not on a sample:
+
+| Property | Held on |
+|:---------|--------:|
+| The written checksum and its complement are complements | 7,317 of 7,317 |
+| Recomputing over the result returns the written value | 7,317 of 7,317 |
+| Nothing outside a header changed | 7,317 of 7,317 |
+| A second rewrite changes nothing | 7,317 of 7,317 |
+
+Every one of those four failed on some cartridge at some point in getting here, and each failure was a defect rather than a strange cartridge. A bootleg with a blank title. A public-domain demo too small for the size band a reader scores against. Neither would have been found by reasoning about the code.
+
+> [!NOTE]
+> A file with no readable header is counted as refused rather than guessed at. Prototypes and unfinished dumps often carry a blank one, and inventing a header for them would put fiction into a corpus of facts.
+
+## The corpus, and why it can ship
+
+A header is thirty two bytes in which a cartridge describes how it is built.
+
+| Field | What it is | Ships? |
+|:------|:-----------|:-------|
+| Size, mapping, chipset, ROM and RAM size | Facts about a physical object | Yes |
+| Counts of how many cartridges share a combination | A measurement | Yes |
+| The title | A name rather than a measurement | No |
+| Anything outside the header | The game | Never read |
+
+Facts and functional elements sit outside what copyright reaches, per [17 U.S.C. 102(b)](https://www.law.cornell.edu/uscode/text/17/102) and `Feist`. [`conformance/census.py`](conformance/census.py) records no title, and nothing in [`conformance/corpus.json`](conformance/corpus.json) could rebuild any part of any cartridge.
+
+Two claims replay from the corpus alone, which is what makes it worth shipping. The size exponent must be the one the model derives from the size. And a cartridge declaring a coprocessor, or declaring a size that is not its own, must be one the model says needs rewriting.
+
+That second claim runs one way only, deliberately. A cartridge whose first header looks clean can still need a rewrite because a later mirror disagrees with it, and the corpus records the first. So a claim of "needs rewriting" is always allowed; a claim of "needs nothing" is checked.
+
+The four properties above need the cartridges, so they run in the census rather than in CI, and their counts travel with the corpus as a record of what was measured.
+
+> [!IMPORTANT]
+> This is how the repository is built, not legal advice. The rule it follows: publish behaviour and identity, never the work itself.
+
+### Taking a census of your own library
 
 ```bash
-python3 fix.py "Star Ocean (English DeJap) [no S-DD1 96Mbit]" star-ocean-en-fixed.sfc
+python3 conformance/census.py "/path/to/roms" census.json
+python3 conformance/census.py library.zip census.json
 ```
 
-Give it a folder and it joins the numbered parts in name order, taking the copier header off the first
-one only, then works on the result. A twelve floppy Game Doctor set and the single file it was split
-from are the same image, and both reach the same digest.
+An archive is read member by member rather than unpacked, because a census does not need a second copy of the library on disk.
 
-### Verify what you got
+## Project structure
+
+```
+romimage/
+  __init__.py     the package
+  dump.py         copier stubs, split sets, and survey statistics
+  identity.py     size and digests, and which one decides
+  rewrite.py      declaring no coprocessor, and the checksum that follows
+  manifest.py     matching a supplied file, and diagnosing a miss
+  version.py      rewritten by the release job and by nothing else
+conformance/
+  census.py       walks a library you own and checks the rewrite on all of it
+  corpus.py       replays every declaration the library contained
+  corpus.json     484 declarations covering 7,317 cartridges
+packages/
+  snes-mapper     the header reader, pinned rather than copied
+```
+
+## Tests
 
 ```bash
-python3 identify.py star-ocean-fixed.sfc
+export PYTHONPATH=".:packages/snes-mapper"
+for f in romimage/*.test.py conformance/*.test.py; do python3 "$f"; done
 ```
 
-The last line reads `already repaired`, with the name of the image it matched. That is the whole verification: the output's digest is one the manifest predicted in advance, not one computed after the fact from whatever the tool happened to produce.
+| Suite | File | Covers |
+|:------|:-----|:-------|
+| Dump | [`romimage/dump.test.py`](romimage/dump.test.py) | Copier stubs, split sets, forms, compression ratios, reuse |
+| Identity | [`romimage/identity.test.py`](romimage/identity.test.py) | The five values, and that only one of them decides |
+| Rewrite | [`romimage/rewrite.test.py`](romimage/rewrite.test.py) | Mirrors, checksum convention, size exponent, confinement, idempotence |
+| Manifest | [`romimage/manifest.test.py`](romimage/manifest.test.py) | Every diagnosis, and what each one tells the reader to do |
+| Census | [`conformance/census.test.py`](conformance/census.test.py) | Folders, archives, tallies, and the four properties |
+| Corpus | [`conformance/corpus.test.py`](conformance/corpus.test.py) | The whole shipped set, replayed |
 
-## Modules
+Coverage is enforced at 100% of statements and branches by [`pyproject.toml`](pyproject.toml).
 
-| Module | Does |
-|:-------|:-----|
-| [`fix.py`](fix.py) | The command. Identifies, reports, repairs, and reports again |
-| [`header.py`](header.py) | Finds every cartridge header, reads the fields, rewrites the chipset, size and checksum |
-| [`identify.py`](identify.py) | Matches a digest against the manifest and explains what was found |
-| [`romtools.py`](romtools.py) | Reads a file or a folder of parts, strips copier headers, and measures size, CRC32 and SHA-256 |
+## Development
 
-## What it will not do
-
-This project ships no game data and will not help you obtain any. It reads an image you already have and writes a corrected copy beside it. The manifest carries whole-file digests, which identify an image and reconstruct nothing.
-
-It also refuses work that would be a lie. A retail cartridge that still needs its chip has a correct header already; the manifest lists that case explicitly so the tool can say why it is leaving it alone.
-
-## Running the tests
-
-```bash
-for module in *.test.py; do python3 "$module"; done
-```
-
-Seventy tests, no network, no fixtures larger than a synthetic 1 MB image built in memory.
-
-Three of them are acceptance tests against a real image and skip unless you point them at one:
-
-```bash
-NOCHIP_IMAGE=/path/to/your/image.sfc python3 fix.test.py
-```
-
-Those assert what the unit tests cannot: that the manifest recognises a real file, that repairing it reaches the digest recorded in advance, and that every changed byte lands inside a header.
-
-## Project conventions
-
-| Convention | Source |
-|:-----------|:-------|
-| Commit format | [Conventional Commits](https://www.conventionalcommits.org/) |
-| Releases | [semantic-release](https://semantic-release.gitbook.io/) on merge to `main`, configured in [`.releaserc.json`](.releaserc.json) |
-| Lint and format | [ruff](https://docs.astral.sh/ruff/), configured in [`pyproject.toml`](pyproject.toml) |
-| Tests | One `<module>.test.py` beside every module, run on Ubuntu and macOS by [`ci.yml`](.github/workflows/ci.yml) |
+| Command | Description |
+|:--------|:------------|
+| `ruff format .` | Format |
+| `ruff check .` | Lint |
+| `python3 -m coverage report` | Coverage, which fails below 100% |
+| `python3 conformance/corpus.py` | Replay the shipped corpus |
+| `python3 conformance/census.py <library> <out>` | Census a library you own |
 
 ## Versioning
 
-[Semantic Versioning](https://semver.org/), tagged on every release. The current version lives in [`version.py`](version.py) and is set by the release pipeline, never by hand. See [releases](https://github.com/gufranco/snes-nochip-header/releases).
+This project follows [Semantic Versioning](https://semver.org/), and every release is tagged from `main` by semantic-release. See [releases](https://github.com/gufranco/snes-rom-image-python/releases).
+
+## FAQ
+
+<details>
+<summary><strong>Why does this depend on another package just to find a header?</strong></summary>
+<br>
+
+Because finding one and rewriting one must never disagree about where to look. The offsets, the scoring and the copier-stub rule are one piece of knowledge, and a second copy of it is a second thing to keep true. When this package did carry its own copy, a real library disagreed with it on 0 cartridges, including Contra III, which declares a mapping byte that appears in no table anyone has written down.
+
+</details>
+
+<details>
+<summary><strong>Why is CRC32 published if it cannot decide?</strong></summary>
+<br>
+
+Because the databases a reader will search still index by it. Publishing it saves them a step. Letting it accept a file would be an integrity claim from a 32-bit error code, which is a different thing entirely.
+
+</details>
+
+<details>
+<summary><strong>Why does a mismatch print a diagnosis instead of just failing?</strong></summary>
+<br>
+
+Because "digest mismatch" tells the reader nothing they can act on, and most misses are entirely theirs to fix: a stub still attached, a set not joined, a different revision. Naming which one it is turns a dead end into an instruction.
+
+</details>
+
+<details>
+<summary><strong>Does this ship or download any cartridge?</strong></summary>
+<br>
+
+No. It reads files a reader already owns, and it publishes measurements of them. It carries no cartridge content, links to no source, and nothing in the corpus could rebuild any part of any image.
+
+</details>
 
 ## License
 

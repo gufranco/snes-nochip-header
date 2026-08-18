@@ -1,8 +1,8 @@
 {
-  "name": "snes-nochip-header",
+  "name": "snes-rom-image",
   "version": "0.0.0-managed-by-semantic-release",
   "private": true,
-  "description": "Release tooling only. This project ships no artefact: the images are supplied by the user.",
+  "description": "Release tooling only. This package ships code, never cartridge content.",
   "license": "MIT",
   "devDependencies": {
     "@semantic-release/exec": "7.1.0",

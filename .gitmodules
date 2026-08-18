@@ -1,0 +1,3 @@
+[submodule "packages/snes-mapper"]
+	path = packages/snes-mapper
+	url = https://github.com/gufranco/snes-mapper-python.git
