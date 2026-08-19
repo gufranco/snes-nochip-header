@@ -1,12 +1,12 @@
 {
-  "measured_across": 7317,
-  "refused": 262,
+  "measured_across": 7330,
+  "refused": 249,
   "disagreed_with_the_map": 0,
   "properties_held": {
-    "complement": 7317,
-    "recompute": 7317,
-    "confined": 7317,
-    "settled": 7317
+    "complement": 7330,
+    "recompute": 7330,
+    "confined": 7330,
+    "settled": 7330
   },
   "cases": [
     {
@@ -97,6 +97,16 @@
       "size": 262144,
       "sram_size": 0,
       "size_byte": 8,
+      "cartridges": 1
+    },
+    {
+      "chipset": 0,
+      "map": 0,
+      "needs_rewrite": true,
+      "rom_size": 0,
+      "size": 3145728,
+      "sram_size": 0,
+      "size_byte": 12,
       "cartridges": 1
     },
     {
@@ -1960,6 +1970,36 @@
       "cartridges": 2
     },
     {
+      "chipset": 128,
+      "map": 0,
+      "needs_rewrite": true,
+      "rom_size": 131,
+      "size": 524288,
+      "sram_size": 33,
+      "size_byte": 9,
+      "cartridges": 1
+    },
+    {
+      "chipset": 128,
+      "map": 0,
+      "needs_rewrite": true,
+      "rom_size": 192,
+      "size": 1048576,
+      "sram_size": 33,
+      "size_byte": 10,
+      "cartridges": 1
+    },
+    {
+      "chipset": 128,
+      "map": 128,
+      "needs_rewrite": true,
+      "rom_size": 163,
+      "size": 1048576,
+      "sram_size": 49,
+      "size_byte": 10,
+      "cartridges": 9
+    },
+    {
       "chipset": 144,
       "map": 176,
       "needs_rewrite": true,
@@ -2077,6 +2117,16 @@
       "size": 997300,
       "sram_size": 0,
       "size_byte": 10,
+      "cartridges": 1
+    },
+    {
+      "chipset": 197,
+      "map": 10,
+      "needs_rewrite": true,
+      "rom_size": 38,
+      "size": 65536,
+      "sram_size": 68,
+      "size_byte": 6,
       "cartridges": 1
     },
     {

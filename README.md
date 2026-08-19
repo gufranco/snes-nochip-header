@@ -8,7 +8,7 @@
 <br>
 
 [![CI](https://github.com/gufranco/snes-rom-image-python/actions/workflows/ci.yml/badge.svg)](https://github.com/gufranco/snes-rom-image-python/actions/workflows/ci.yml)
-[![Corpus](https://img.shields.io/badge/corpus-484%20%2F%20484-brightgreen)](#the-corpus-and-why-it-can-ship)
+[![Corpus](https://img.shields.io/badge/corpus-489%20%2F%20489-brightgreen)](#the-corpus-and-why-it-can-ship)
 [![Cartridges](https://img.shields.io/badge/measured%20across-7%2C317%20cartridges-blue)](#what-a-real-library-actually-contains)
 [![Coverage](https://img.shields.io/badge/coverage-100%25%20statement%20%2B%20branch-brightgreen)](#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -23,7 +23,7 @@
   <a href="https://github.com/gufranco/snes-rom-image-python/issues">Issues</a>
 </p>
 
-**484** declarations, **0** failures · **4** properties checked on every one of **7,317** cartridges · **169** tests · **100%** statement and branch coverage
+**489** declarations, **0** failures · **4** properties checked on every one of **7,330** cartridges · **172** tests · **100%** statement and branch coverage
 
 ```python
 from romimage import dump, rewrite
@@ -114,9 +114,9 @@ The header reader is a submodule rather than a copied file, which is the whole p
 
 ```bash
 python3 conformance/corpus.py
-#   484 declarations from corpus.json
-#   measured across 7,317 cartridges
-#   484 agreed, 0 did not
+#   489 declarations from corpus.json
+#   measured across 7330 cartridges
+#   489 agreed, 0 did not
 ```
 
 ## The mistakes this exists to stop
@@ -192,24 +192,24 @@ CRC32 is a 32-bit error code. MD5 and SHA-1 are collision-broken. All three are 
 
 ## What a real library actually contains
 
-Measured across **7,317** cartridges, with 262 refused for carrying no readable header:
+Measured across **7,330** cartridges, with 249 refused for carrying no readable header:
 
 | Measurement | Value |
 |:------------|------:|
-| Distinct declarations | 484 |
+| Distinct declarations | 489 |
 | Distinct image sizes | 108 |
-| Distinct chipset bytes | 34 |
-| Cartridges that would need rewriting | 3,786 |
+| Distinct chipset bytes | 36 |
+| Cartridges that would need rewriting | 3,799 |
 | Disagreements with the header reader | 0 |
 
 Four properties were checked on every cartridge, not on a sample:
 
 | Property | Held on |
 |:---------|--------:|
-| The written checksum and its complement are complements | 7,317 of 7,317 |
-| Recomputing over the result returns the written value | 7,317 of 7,317 |
-| Nothing outside a header changed | 7,317 of 7,317 |
-| A second rewrite changes nothing | 7,317 of 7,317 |
+| The written checksum and its complement are complements | 7,330 of 7,330 |
+| Recomputing over the result returns the written value | 7,330 of 7,330 |
+| Nothing outside a header changed | 7,330 of 7,330 |
+| A second rewrite changes nothing | 7,330 of 7,330 |
 
 Every one of those four failed on some cartridge at some point in getting here, and each failure was a defect rather than a strange cartridge. A bootleg with a blank title. A public-domain demo too small for the size band a reader scores against. Neither would have been found by reasoning about the code.
 
@@ -260,7 +260,7 @@ romimage/
 conformance/
   census.py       walks a library you own and checks the rewrite on all of it
   corpus.py       replays every declaration the library contained
-  corpus.json     484 declarations covering 7,317 cartridges
+  corpus.json     489 declarations covering 7,330 cartridges
 packages/
   snes-mapper     the header reader, pinned rather than copied
 ```
