@@ -30,16 +30,18 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
-          cache: npm
+          cache: pnpm
 
       - name: Install the formatter
-        run: npm clean-install --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Check that every JSON file is formatted
-        run: npm run format:check
+        run: pnpm run format:check
 
       - name: Check formatting
         run: ruff format --check .
@@ -109,17 +111,24 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
+          cache: pnpm
 
       - name: Install release tooling
-        run: npm clean-install
+        run: pnpm install --frozen-lockfile
 
-      - name: Verify provenance of the release tooling
-        run: npm audit signatures
+      # pnpm has no equivalent of `npm audit signatures`, which verified registry
+      # provenance attestations. This checks the tooling for known advisories
+      # instead. It is a narrower guarantee and is here so the gap is visible
+      # rather than silently dropped along with the command that used to fill it.
+      - name: Check the release tooling for known advisories
+        run: pnpm audit --audit-level=high
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: pnpm exec semantic-release
