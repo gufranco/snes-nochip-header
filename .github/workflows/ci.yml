@@ -63,7 +63,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-26]
     env:
-      PYTHONPATH: .:packages/snes-mapper
+      PYTHONPATH: .:snes-mapper-python
     steps:
       - uses: actions/checkout@v7
         with:

@@ -105,7 +105,7 @@ Stub attached, set not joined, known bad dump, right size and wrong content. Eac
 ```bash
 git clone --recurse-submodules https://github.com/gufranco/snes-rom-image-python.git
 cd snes-rom-image-python
-export PYTHONPATH=".:packages/snes-mapper"
+export PYTHONPATH=".:snes-mapper-python"
 ```
 
 The header reader is a submodule rather than a copied file, which is the whole point: this package rewrites headers and that one finds them, and a second copy of those offsets is a second thing to keep true.
@@ -268,7 +268,7 @@ packages/
 ## Tests
 
 ```bash
-export PYTHONPATH=".:packages/snes-mapper"
+export PYTHONPATH=".:snes-mapper-python"
 for f in romimage/*.test.py conformance/*.test.py; do python3 "$f"; done
 ```
 
