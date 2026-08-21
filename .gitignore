@@ -6,3 +6,4 @@ node_modules/
 *.078
 .mypy_cache/
 .ruff_cache/
+docs/

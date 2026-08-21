@@ -31,6 +31,7 @@ from romimage import dump, rewrite
 image = dump.read("game.smc")
 
 rewrite.declare_rom_only(image)
+
 # every mirror of the header updated, checksum recomputed over the result
 ```
 
@@ -114,8 +115,11 @@ The header reader is a submodule rather than a copied file, which is the whole p
 
 ```bash
 python3 conformance/corpus.py
+
 #   489 declarations from corpus.json
+
 #   measured across 7330 cartridges
+
 #   489 agreed, 0 did not
 ```
 
@@ -127,6 +131,7 @@ python3 conformance/corpus.py
 from romimage import dump
 
 len(dump.read("game.smc")) - len(open("game.smc", "rb").read())
+
 # -512, and a patch applied without this lands in the wrong place
 ```
 
@@ -136,6 +141,7 @@ Detected by length rather than content, because the stub's content is not standa
 
 ```python
 dump.read("game-parts/")
+
 # the parts joined in name order, with the stub off only the first
 ```
 
@@ -147,6 +153,7 @@ The sort is case-insensitive, because the device wrote the names in upper case a
 from romimage import rewrite
 
 rewrite.mirrors(image)
+
 # [0x7FC0, 0x87FC0, 0x107FC0], and all of them have to change
 ```
 
@@ -156,6 +163,7 @@ A mirror exists because the same bank is visible at more than one address, so ev
 
 ```python
 rewrite.checksum(rewrite.declare_rom_only(image)) == written_value
+
 # True, because the four checksum bytes count as FF FF 00 00
 ```
 
@@ -165,6 +173,7 @@ The sum is taken over the whole image including the fields holding the result, w
 
 ```python
 rewrite.mirrored_sum(twelve_megabit)
+
 # the first eight megabit once, the last four twice
 ```
 
@@ -176,6 +185,7 @@ A quarter of the retail library is built this way, and summing every byte once i
 
 ```python
 rewrite.checksum(half_written, places)
+
 # the mirrors already found, not the mirrors of a half-written header
 ```
 
@@ -185,6 +195,7 @@ Clearing the coprocessor byte and correcting the size costs a header two of the 
 
 ```python
 rewrite.size_byte(0x400000)
+
 # 12, not 4096 and not 4
 ```
 
@@ -196,6 +207,7 @@ An image that grew past a power of two and kept its old byte declares itself sma
 from romimage import identity
 
 identity.AUTHORITATIVE
+
 # 'sha256'
 ```
 
