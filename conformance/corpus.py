@@ -25,7 +25,9 @@ corpus as a record of what was measured, not as something this can re-derive.
 
 import json
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -34,14 +36,15 @@ from romimage import rewrite
 CORPUS = Path(__file__).resolve().parent / "corpus.json"
 
 
-def load(path=None):
+def load(path: Path | str | None = None) -> dict[str, Any]:
     """The corpus, from where it ships or from a file a caller names."""
-    return json.loads(Path(path or CORPUS).read_text())
+    held: dict[str, Any] = json.loads(Path(path or CORPUS).read_text())
+    return held
 
 
-def check(document):
+def check(document: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Every case the model does not agree with, and why."""
-    wrong = []
+    wrong: list[dict[str, Any]] = []
     for case in document["cases"]:
         wanted = rewrite.size_byte(case["size"])
         if case["size_byte"] != wanted:
@@ -54,7 +57,7 @@ def check(document):
     return wrong
 
 
-def report(document, wrong):
+def report(document: Mapping[str, Any], wrong: Sequence[Mapping[str, Any]]) -> None:
     """What was replayed and what disagreed, in the order a reader needs it."""
     cases = document["cases"]
     print(f"  {len(cases)} declarations from {CORPUS.name}")
@@ -68,7 +71,7 @@ def report(document, wrong):
         )
 
 
-def main(argv):
+def main(argv: Sequence[str]) -> int:
     if len(argv) > 2:
         print("usage: corpus.py [corpus.json]", file=sys.stderr)
         return 2

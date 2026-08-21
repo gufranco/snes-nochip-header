@@ -3,16 +3,17 @@ import random
 import tempfile
 import unittest
 from pathlib import Path
+from typing import override
 
 from romimage import identity, manifest, rewrite
 
 
-def _blank(banks=2, seed=1):
+def _blank(banks: int = 2, seed: int = 1):
     generator = random.Random(seed)
     return bytearray(generator.randrange(256) for _ in range(banks * 0x10000))
 
 
-def _cartridge(banks=2, seed=1, at=0x007FC0, chipset=0x43):
+def _cartridge(banks: int = 2, seed: int = 1, at: int = 0x007FC0, chipset: int = 0x43):
     image = _blank(banks, seed)
     image[at : at + 21] = b"A CARTRIDGE          "
     image[at + rewrite.MAP_MODE] = 0x20
@@ -45,83 +46,84 @@ def _document():
 
 
 class LoadTest(unittest.TestCase):
-    def test_a_document_is_taken_as_given(self):
+    def test_a_document_is_taken_as_given(self) -> None:
         self.assertEqual(len(manifest.Manifest(_document()).artifacts), 1)
 
-    def test_a_path_is_read_from_disk(self):
+    def test_a_path_is_read_from_disk(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "artifacts.manifest.json"
             path.write_text(json.dumps(_document()))
 
             self.assertEqual(len(manifest.Manifest.from_path(path).artifacts), 1)
 
-    def test_a_document_with_no_artifacts_is_refused(self):
+    def test_a_document_with_no_artifacts_is_refused(self) -> None:
         with self.assertRaises(manifest.Malformed):
             manifest.Manifest({"canonical": {}})
 
-    def test_an_artifact_with_no_accepted_form_is_refused(self):
+    def test_an_artifact_with_no_accepted_form_is_refused(self) -> None:
         with self.assertRaises(manifest.Malformed):
             manifest.Manifest({"artifacts": [{"name": "x", "accepted": []}]})
 
-    def test_an_accepted_form_with_no_deciding_value_is_refused(self):
+    def test_an_accepted_form_with_no_deciding_value_is_refused(self) -> None:
         with self.assertRaises(manifest.Malformed):
             manifest.Manifest({"artifacts": [{"name": "x", "accepted": [{"crc32": "0"}]}]})
 
 
 class MatchTest(unittest.TestCase):
-    def setUp(self):
+    @override
+    def setUp(self) -> None:
         self.manifest = manifest.Manifest(_document())
 
-    def test_the_file_it_expects_is_recognised(self):
+    def test_the_file_it_expects_is_recognised(self) -> None:
         self.assertEqual(self.manifest.diagnose(GOOD)["state"], manifest.KNOWN)
 
-    def test_an_already_rewritten_file_is_recognised_as_that(self):
+    def test_an_already_rewritten_file_is_recognised_as_that(self) -> None:
         self.assertEqual(self.manifest.diagnose(DONE)["state"], manifest.REWRITTEN)
 
-    def test_a_dump_it_knows_to_be_damaged_is_named_as_damaged(self):
+    def test_a_dump_it_knows_to_be_damaged_is_named_as_damaged(self) -> None:
         found = self.manifest.diagnose(CORRUPT)
 
         self.assertEqual(found["state"], manifest.BAD_DUMP)
         self.assertEqual(found["why"], "overdump")
 
-    def test_a_file_of_the_right_size_and_wrong_content_says_so(self):
+    def test_a_file_of_the_right_size_and_wrong_content_says_so(self) -> None:
         self.assertEqual(self.manifest.diagnose(OTHER)["state"], manifest.SAME_SIZE)
 
-    def test_a_file_of_no_recognised_size_is_simply_unknown(self):
+    def test_a_file_of_no_recognised_size_is_simply_unknown(self) -> None:
         self.assertEqual(self.manifest.diagnose(bytes(0x1000))["state"], manifest.UNKNOWN)
 
-    def test_a_copier_stub_comes_off_before_the_comparison(self):
+    def test_a_copier_stub_comes_off_before_the_comparison(self) -> None:
         found = self.manifest.diagnose(bytes(0x200) + GOOD)
 
         self.assertEqual(found["state"], manifest.KNOWN)
         self.assertEqual(found["form"], "copier header")
 
-    def test_the_form_is_reported_as_given_when_one_is_supplied(self):
+    def test_the_form_is_reported_as_given_when_one_is_supplied(self) -> None:
         self.assertEqual(self.manifest.diagnose(GOOD, form="4 part set")["form"], "4 part set")
 
-    def test_what_it_computed_is_reported_whether_or_not_it_matched(self):
+    def test_what_it_computed_is_reported_whether_or_not_it_matched(self) -> None:
         found = self.manifest.diagnose(OTHER)
 
         self.assertEqual(found["identity"]["sha256"], identity.measure(OTHER)["sha256"])
 
-    def test_a_recognised_file_names_the_artifact_it_is(self):
+    def test_a_recognised_file_names_the_artifact_it_is(self) -> None:
         self.assertEqual(self.manifest.diagnose(GOOD)["artifact"]["name"], "A Cartridge, Japanese")
 
-    def test_an_unrecognised_file_names_no_artifact(self):
+    def test_an_unrecognised_file_names_no_artifact(self) -> None:
         self.assertIsNone(self.manifest.diagnose(bytes(0x1000))["artifact"])
 
-    def test_the_headers_it_found_come_back_with_the_verdict(self):
+    def test_the_headers_it_found_come_back_with_the_verdict(self) -> None:
         found = self.manifest.diagnose(GOOD)
 
         self.assertEqual(found["headers"][0]["coprocessor"], "S-DD1")
 
-    def test_a_manifest_that_lists_no_damaged_dumps_still_answers(self):
+    def test_a_manifest_that_lists_no_damaged_dumps_still_answers(self) -> None:
         document = _document()
         del document["artifacts"][0]["bad"]
 
         self.assertEqual(manifest.Manifest(document).diagnose(CORRUPT)["state"], manifest.SAME_SIZE)
 
-    def test_a_manifest_that_lists_no_rewritten_form_still_answers(self):
+    def test_a_manifest_that_lists_no_rewritten_form_still_answers(self) -> None:
         document = _document()
         del document["artifacts"][0]["rewritten"]
 
@@ -129,32 +131,33 @@ class MatchTest(unittest.TestCase):
 
 
 class ExplainTest(unittest.TestCase):
-    def setUp(self):
+    @override
+    def setUp(self) -> None:
         self.manifest = manifest.Manifest(_document())
 
-    def test_it_always_prints_what_it_computed(self):
+    def test_it_always_prints_what_it_computed(self) -> None:
         said = self.manifest.explain(self.manifest.diagnose(OTHER))
 
         self.assertIn(identity.measure(OTHER)["sha256"], said)
 
-    def test_a_recognised_file_is_named(self):
+    def test_a_recognised_file_is_named(self) -> None:
         self.assertIn("A Cartridge, Japanese", self.manifest.explain(self.manifest.diagnose(GOOD)))
 
-    def test_an_already_rewritten_file_says_so_rather_than_reading_as_wrong(self):
+    def test_an_already_rewritten_file_says_so_rather_than_reading_as_wrong(self) -> None:
         self.assertIn("already", self.manifest.explain(self.manifest.diagnose(DONE)))
 
-    def test_a_damaged_dump_says_damaged_rather_than_wrong(self):
+    def test_a_damaged_dump_says_damaged_rather_than_wrong(self) -> None:
         self.assertIn("overdump", self.manifest.explain(self.manifest.diagnose(CORRUPT)))
 
-    def test_a_same_size_miss_says_what_to_suspect(self):
+    def test_a_same_size_miss_says_what_to_suspect(self) -> None:
         said = self.manifest.explain(self.manifest.diagnose(OTHER))
 
         self.assertIn("contents do not", said)
 
-    def test_an_unknown_file_says_the_manifest_does_not_know_it(self):
+    def test_an_unknown_file_says_the_manifest_does_not_know_it(self) -> None:
         self.assertIn("not a file", self.manifest.explain(self.manifest.diagnose(bytes(0x1000))))
 
-    def test_every_header_it_found_is_printed(self):
+    def test_every_header_it_found_is_printed(self) -> None:
         said = self.manifest.explain(self.manifest.diagnose(GOOD))
 
         self.assertIn("S-DD1", said)

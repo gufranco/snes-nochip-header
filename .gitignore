@@ -4,3 +4,5 @@ node_modules/
 *.sfc
 *.smc
 *.078
+.mypy_cache/
+.ruff_cache/

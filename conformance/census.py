@@ -39,11 +39,15 @@ import collections
 import json
 import sys
 import zipfile
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import mapper
+from mapper import has_copier_stub
+from mapper.header import HEADER_BYTES
 
 from romimage import dump, rewrite
 
@@ -52,7 +56,7 @@ SUFFIXES = (".sfc", ".smc", ".fig", ".swc")
 PROPERTIES = ("complement", "recompute", "confined", "settled")
 
 
-def images(source, limit=None):
+def images(source: Path | str, limit: int | None = None) -> Iterator[tuple[str, bytes]]:
     """Every cartridge in a library, whether it is a folder or one archive.
 
     An eight gigabyte archive is read member by member rather than unpacked,
@@ -74,7 +78,7 @@ def images(source, limit=None):
                 yield Path(name).name, member.read()
 
 
-def properties_of(image, places):
+def properties_of(image: bytes, places: Sequence[int]) -> dict[str, bool]:
     """The four things that must be true of every rewrite, on this cartridge."""
     written = rewrite.declare_rom_only(image)
     at = places[0]
@@ -85,9 +89,7 @@ def properties_of(image, places):
     )
 
     inside = {
-        offset
-        for place in places
-        for offset in range(place, min(place + rewrite.HEADER_BYTES, len(image)))
+        offset for place in places for offset in range(place, min(place + HEADER_BYTES, len(image)))
     }
 
     return {
@@ -98,7 +100,7 @@ def properties_of(image, places):
     }
 
 
-def failed(name, properties):
+def failed(name: str, properties: Mapping[str, bool]) -> list[dict[str, str]]:
     """The properties that did not hold on one cartridge, named with it."""
     return [
         {"file": name, "property": property_name}
@@ -107,20 +109,20 @@ def failed(name, properties):
     ]
 
 
-def survey(library, limit=None):
+def survey(library: Path | str, limit: int | None = None) -> dict[str, Any]:
     """What the library is made of, and how the rewrite behaved on all of it."""
-    cases = collections.Counter()
-    mapping = collections.Counter()
-    chipset = collections.Counter()
-    coprocessor = collections.Counter()
-    mirrors = collections.Counter()
-    held = collections.Counter()
-    forms = collections.Counter()
-    failures = []
+    cases: collections.Counter[str] = collections.Counter()
+    mapping: collections.Counter[int] = collections.Counter()
+    chipset: collections.Counter[int] = collections.Counter()
+    coprocessor: collections.Counter[str] = collections.Counter()
+    mirrors: collections.Counter[int] = collections.Counter()
+    held: collections.Counter[str] = collections.Counter()
+    forms: collections.Counter[str] = collections.Counter()
+    failures: list[dict[str, str]] = []
     read = refused = wanted = disagreed = 0
 
     for name, blob in images(library, limit):
-        forms["copier stub" if dump.has_copier_stub(blob) else "bare"] += 1
+        forms["copier stub" if has_copier_stub(blob) else "bare"] += 1
         image = dump.strip_copier_stub(blob)
 
         places = rewrite.mirrors(image)
@@ -136,7 +138,7 @@ def survey(library, limit=None):
             continue
 
         read += 1
-        first = image[places[0] : places[0] + rewrite.HEADER_BYTES]
+        first = image[places[0] : places[0] + HEADER_BYTES]
         declared = {
             "size": len(image),
             "map": first[rewrite.MAP_MODE],
@@ -175,9 +177,9 @@ def survey(library, limit=None):
     }
 
 
-def corpus(found):
+def corpus(found: Mapping[str, Any]) -> dict[str, Any]:
     """The replayable part: every distinct case, with what it must produce."""
-    cases = []
+    cases: list[dict[str, Any]] = []
     for encoded, count in sorted(found["cases"].items()):
         declared = json.loads(encoded)
         cases.append(
@@ -196,7 +198,7 @@ def corpus(found):
     }
 
 
-def report(found):
+def report(found: Mapping[str, Any]) -> None:
     """What the census saw, said in the order a reader needs it."""
     print(f"  {found['read']} cartridges read, {found['refused']} refused")
     print(f"  {found['disagreed_with_the_map']} disagreed with the map about having a header")
@@ -208,12 +210,12 @@ def report(found):
         print(f"  FAILED {failure['property']}: {failure['file']}")
 
 
-def verdict(found):
+def verdict(found: Mapping[str, Any]) -> int:
     """Zero when every property held on every cartridge, one when any did not."""
     return 1 if found["failures"] else 0
 
 
-def main(argv):
+def main(argv: Sequence[str]) -> int:
     if len(argv) not in (3, 4):
         print("usage: census.py <library> <out.json> [limit]", file=sys.stderr)
         return 2

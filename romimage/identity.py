@@ -27,6 +27,8 @@ answers that question, and every measurement here assumes it was asked first.
 
 import hashlib
 import zlib
+from collections.abc import Mapping
+from typing import Any
 
 AUTHORITATIVE = "sha256"
 
@@ -37,7 +39,7 @@ class NoAuthority(Exception):
     pass
 
 
-def measure(data):
+def measure(data: bytes) -> dict[str, Any]:
     """Everything published about a file, with one value able to decide."""
     return {
         "size": len(data),
@@ -48,7 +50,7 @@ def measure(data):
     }
 
 
-def agrees(found, expected):
+def agrees(found: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
     """Whether a measurement is the file that was expected, by one value only.
 
     A weaker value that happens to disagree does not overrule the deciding one,
@@ -57,4 +59,5 @@ def agrees(found, expected):
     """
     if AUTHORITATIVE not in expected:
         raise NoAuthority(f"an expectation with no {AUTHORITATIVE} cannot accept or reject")
-    return found.get(AUTHORITATIVE) == expected[AUTHORITATIVE]
+    agreed: bool = found.get(AUTHORITATIVE) == expected[AUTHORITATIVE]
+    return agreed

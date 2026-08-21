@@ -20,7 +20,9 @@ publish behaviour and identity, never the work itself.
 """
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from . import dump, identity, rewrite
 
@@ -35,7 +37,7 @@ class Malformed(Exception):
     pass
 
 
-def _checked(document):
+def _checked(document: Mapping[str, Any]) -> Mapping[str, Any]:
     artifacts = document.get("artifacts")
     if not artifacts:
         raise Malformed("a manifest with no artifacts cannot accept or reject anything")
@@ -55,18 +57,19 @@ def _checked(document):
 class Manifest:
     """The artefacts a project expects, and what it can say about a miss."""
 
-    def __init__(self, document):
+    def __init__(self, document: Mapping[str, Any]) -> None:
         self.document = _checked(document)
 
     @classmethod
-    def from_path(cls, path):
+    def from_path(cls, path: Path | str) -> "Manifest":
         return cls(json.loads(Path(path).read_text()))
 
     @property
-    def artifacts(self):
-        return self.document["artifacts"]
+    def artifacts(self) -> tuple[Mapping[str, Any], ...]:
+        held: tuple[Mapping[str, Any], ...] = tuple(self.document["artifacts"])
+        return held
 
-    def by_digest(self, found):
+    def by_digest(self, found: Mapping[str, Any]) -> Mapping[str, Any] | None:
         """Which artefact a measurement is, and in which of its forms."""
         for artifact in self.artifacts:
             for accepted in artifact["accepted"]:
@@ -80,16 +83,16 @@ class Manifest:
                     return {"state": BAD_DUMP, "artifact": artifact, "why": bad.get("why")}
         return None
 
-    def by_size(self, size):
+    def by_size(self, size: int) -> tuple[Mapping[str, Any], ...]:
         """Every artefact that expects a file of exactly this length."""
-        return [
+        return tuple(
             artifact
             for artifact in self.artifacts
             for accepted in artifact["accepted"]
             if accepted.get("size") == size
-        ]
+        )
 
-    def diagnose(self, data, form=None):
+    def diagnose(self, data: bytes, form: str | None = None) -> Mapping[str, Any]:
         """What this file is, and when it is not what was wanted, what went wrong.
 
         The stub comes off first, because a dump that carries one is the right
@@ -112,7 +115,7 @@ class Manifest:
             "headers": rewrite.describe(held),
         }
 
-    def explain(self, found):
+    def explain(self, found: Mapping[str, Any]) -> str:
         """The diagnosis as a reader reads it, with what to do about it."""
         lines = [
             f"  size    {found['size']:,} bytes, read as {found['form']}",

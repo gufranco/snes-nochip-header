@@ -27,6 +27,7 @@ another, which is what tells you whether a rebuild changed what it meant to.
 
 import re
 import zlib
+from collections.abc import Sequence
 from pathlib import Path
 
 from mapper import COPIER_BYTES, has_copier_stub, stub_by_length
@@ -47,12 +48,12 @@ class NoParts(Exception):
     pass
 
 
-def strip_copier_stub(data):
+def strip_copier_stub(data: bytes) -> bytes:
     """The dump without the stub, or unchanged when it never had one."""
     return data[COPIER_BYTES:] if has_copier_stub(data) else data
 
 
-def parts_in(folder):
+def parts_in(folder: Path | str) -> list[Path]:
     """Every numbered part below a folder, in the order they join.
 
     The sort is case-insensitive because the device wrote the names in upper case
@@ -68,14 +69,14 @@ def parts_in(folder):
     return sorted(found, key=lambda path: path.name.upper())
 
 
-def join(parts):
+def join(parts: Sequence[bytes]) -> bytes:
     """One image from a split set, with the stub taken off only the first part."""
     if not parts:
         return b""
     return b"".join([strip_copier_stub(parts[0]), *parts[1:]])
 
 
-def form(path):
+def form(path: Path | str) -> str:
     """How a source is stored, said in the words a report uses.
 
     The stub is decided from the file's length, so this reads no cartridge to
@@ -88,7 +89,7 @@ def form(path):
     return COPIER if stub_by_length(path.stat().st_size) else BARE
 
 
-def read(path):
+def read(path: Path | str) -> bytes:
     """A dump from disk or from a folder of parts, as the console would see it."""
     path = Path(path)
     if not path.is_dir():
@@ -100,31 +101,35 @@ def read(path):
     return join([part.read_bytes() for part in parts])
 
 
-def deflate_ratio(block):
+def deflate_ratio(block: bytes) -> float:
     """How much a general-purpose compressor can still take off a block."""
     if not block:
         return 0.0
     return len(zlib.compress(block, DEFLATE_LEVEL)) / len(block)
 
 
-def block_ratios(data, block=BLOCK_BYTES):
+def block_ratios(data: bytes, block: int = BLOCK_BYTES) -> list[float]:
     """That ratio across the whole image, which is where its structure shows."""
     return [deflate_ratio(data[i : i + block]) for i in range(0, len(data) - block + 1, block)]
 
 
-def chunk_index(data, chunk=CHUNK_BYTES, stride=CHUNK_STRIDE):
+def chunk_index(
+    data: bytes, chunk: int = CHUNK_BYTES, stride: int = CHUNK_STRIDE
+) -> dict[bytes, int]:
     """Where each distinct chunk first appears, at a stride finer than the chunk.
 
     The stride is deliberately shorter than the chunk, so a run that moved by an
     amount that is not a whole chunk is still found.
     """
-    index = {}
+    index: dict[bytes, int] = {}
     for i in range(0, len(data) - chunk + 1, stride):
         index.setdefault(data[i : i + chunk], i)
     return index
 
 
-def measure_reuse(source, target, chunk=CHUNK_BYTES, stride=CHUNK_STRIDE):
+def measure_reuse(
+    source: bytes, target: bytes, chunk: int = CHUNK_BYTES, stride: int = CHUNK_STRIDE
+) -> tuple[int, int]:
     """How many of one image's chunks appear anywhere in another."""
     index = chunk_index(target, chunk=chunk, stride=stride)
     found = total = 0

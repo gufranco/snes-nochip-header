@@ -33,18 +33,18 @@ def _document(cases):
 
 
 class ShippedTest(unittest.TestCase):
-    def test_the_shipped_corpus_is_there_and_parses(self):
+    def test_the_shipped_corpus_is_there_and_parses(self) -> None:
         self.assertGreater(len(corpus.load()["cases"]), 0)
 
-    def test_it_was_measured_across_a_real_library(self):
+    def test_it_was_measured_across_a_real_library(self) -> None:
         self.assertGreater(corpus.load()["measured_across"], 1000)
 
-    def test_every_shipped_case_agrees_with_the_model(self):
+    def test_every_shipped_case_agrees_with_the_model(self) -> None:
         wrong = corpus.check(corpus.load())
 
         self.assertEqual(wrong, [])
 
-    def test_no_shipped_case_carries_anything_but_measurements(self):
+    def test_no_shipped_case_carries_anything_but_measurements(self) -> None:
         allowed = {
             "size",
             "map",
@@ -61,37 +61,37 @@ class ShippedTest(unittest.TestCase):
 
 
 class CheckTest(unittest.TestCase):
-    def test_a_case_that_agrees_is_not_reported(self):
+    def test_a_case_that_agrees_is_not_reported(self) -> None:
         self.assertEqual(corpus.check(_document([_case()])), [])
 
-    def test_a_wrong_exponent_is_reported(self):
+    def test_a_wrong_exponent_is_reported(self) -> None:
         wrong = corpus.check(_document([_case(size_byte=3)]))
 
         self.assertEqual(wrong[0]["why"], "size_byte")
 
-    def test_a_declared_coprocessor_that_claims_no_rewrite_is_reported(self):
+    def test_a_declared_coprocessor_that_claims_no_rewrite_is_reported(self) -> None:
         wrong = corpus.check(_document([_case(chipset=0x43, needs_rewrite=False)]))
 
         self.assertEqual(wrong[0]["why"], "needs_rewrite")
 
-    def test_a_wrong_size_byte_in_the_header_that_claims_no_rewrite_is_reported(self):
+    def test_a_wrong_size_byte_in_the_header_that_claims_no_rewrite_is_reported(self) -> None:
         wrong = corpus.check(_document([_case(chipset=0x00, rom_size=0x01, needs_rewrite=False)]))
 
         self.assertEqual(wrong[0]["why"], "needs_rewrite")
 
-    def test_a_cartridge_already_declaring_rom_only_may_say_it_needs_nothing(self):
+    def test_a_cartridge_already_declaring_rom_only_may_say_it_needs_nothing(self) -> None:
         clean = _case(chipset=0x00, rom_size=10, needs_rewrite=False)
 
         self.assertEqual(corpus.check(_document([clean])), [])
 
-    def test_the_report_names_the_case_that_failed(self):
+    def test_the_report_names_the_case_that_failed(self) -> None:
         wrong = corpus.check(_document([_case(size_byte=3)]))
 
         self.assertEqual(wrong[0]["case"]["chipset"], 0x43)
 
 
 class LoadTest(unittest.TestCase):
-    def test_a_path_is_read_from_disk(self):
+    def test_a_path_is_read_from_disk(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "corpus.json"
             path.write_text(json.dumps(_document([_case()])))
@@ -106,27 +106,27 @@ class ReportTest(unittest.TestCase):
             corpus.report(document, wrong)
         return buffer.getvalue()
 
-    def test_it_says_how_many_cases_and_how_many_cartridges(self):
+    def test_it_says_how_many_cases_and_how_many_cartridges(self) -> None:
         said = self._said(_document([_case()]), [])
 
         self.assertIn("1 declarations", said)
         self.assertIn("1 cartridges", said)
 
-    def test_it_says_how_many_agreed(self):
+    def test_it_says_how_many_agreed(self) -> None:
         self.assertIn("1 agreed, 0 did not", self._said(_document([_case()]), []))
 
-    def test_a_disagreement_is_printed(self):
+    def test_a_disagreement_is_printed(self) -> None:
         document = _document([_case(size_byte=3)])
 
         self.assertIn("size_byte", self._said(document, corpus.check(document)))
 
 
 class MainTest(unittest.TestCase):
-    def test_the_shipped_corpus_replays_clean(self):
+    def test_the_shipped_corpus_replays_clean(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(corpus.main(["corpus.py"]), 0)
 
-    def test_a_corpus_that_disagrees_exits_non_zero(self):
+    def test_a_corpus_that_disagrees_exits_non_zero(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "corpus.json"
             path.write_text(json.dumps(_document([_case(size_byte=3)])))
@@ -134,12 +134,12 @@ class MainTest(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(corpus.main(["corpus.py", str(path)]), 1)
 
-    def test_it_refuses_more_arguments_than_it_takes(self):
+    def test_it_refuses_more_arguments_than_it_takes(self) -> None:
         self.assertEqual(corpus.main(["corpus.py", "a", "b"]), 2)
 
 
 class ModelTest(unittest.TestCase):
-    def test_the_exponent_the_corpus_expects_is_the_one_the_model_computes(self):
+    def test_the_exponent_the_corpus_expects_is_the_one_the_model_computes(self) -> None:
         for case in corpus.load()["cases"][:50]:
             self.assertEqual(rewrite.size_byte(case["size"]), case["size_byte"])
 

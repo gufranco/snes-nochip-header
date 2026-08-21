@@ -38,6 +38,35 @@ ignore = [
 # timestamp in front of a report meant to be read by a person.
 "conformance/*.py" = ["T201"]
 
+[tool.mypy]
+# Every flag mypy has, plus the ones strict does not turn on. The errors that
+# matter in a model of hardware are the ones where a width, a mask or a None
+# crosses a boundary, and those are exactly what the optional classes catch.
+strict = true
+python_version = "3.12"
+warn_unreachable = true
+warn_no_return = true
+strict_equality = true
+extra_checks = true
+enable_error_code = [
+  "explicit-override",
+  "ignore-without-code",
+  "possibly-undefined",
+  "redundant-expr",
+  "truthy-bool",
+  "truthy-iterable",
+  "unused-awaitable",
+]
+files = ["romimage", "conformance"]
+
+[[tool.mypy.overrides]]
+# The submodules are checked in their own repositories, against their own gate.
+# Following imports into them here would report the state of somebody else's
+# project and a finding nobody in this one can act on.
+module = ["mapper.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = ["romimage", "conformance"]
 branch = true

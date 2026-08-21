@@ -43,6 +43,9 @@ the title needs no allowlist of mapping bytes, and cannot match a title that
 happens to appear in the middle of something else.
 """
 
+from collections.abc import Sequence
+from typing import Any
+
 import mapper
 from mapper.header import HEADER_BYTES, TITLE_BYTES, NoHeader
 
@@ -83,7 +86,7 @@ COPROCESSORS = {
 }
 
 
-def size_byte(length):
+def size_byte(length: int) -> int:
     """The exponent a header uses to declare its own size in kilobytes."""
     kilobytes = max(1, (length + KILOBYTE - 1) // KILOBYTE)
     exponent = 0
@@ -92,7 +95,7 @@ def size_byte(length):
     return exponent
 
 
-def identifies(block):
+def identifies(block: bytes | bytearray) -> bool:
     """Whether a run of bytes can be searched for, or is only padding.
 
     A header made entirely of spaces, zeroes or `FF` is rare and real, and
@@ -103,15 +106,16 @@ def identifies(block):
     return bool(set(block) - PADDING)
 
 
-def anchor_of(image):
+def anchor_of(image: bytes | bytearray) -> int | None:
     """Where the header is, decided by the package that decides that."""
     try:
-        return mapper.read(image).at
+        at: int = mapper.read(image).at
+        return at
     except NoHeader:
         return None
 
 
-def mirrors(image):
+def mirrors(image: bytes | bytearray) -> list[int]:
     """Every place this image repeats its header, in the order they appear.
 
     A mirror exists because the same bank is visible at more than one address, so
@@ -139,7 +143,7 @@ def mirrors(image):
     return found
 
 
-def describe(image):
+def describe(image: bytes | bytearray) -> list[dict[str, Any]]:
     """What every mirror declares, in the words a report prints."""
     return [
         {
@@ -156,7 +160,7 @@ def describe(image):
     ]
 
 
-def checksum(image, places=None):
+def checksum(image: bytes | bytearray, places: Sequence[int] | None = None) -> int:
     """The sixteen-bit sum, with the fields that store it counted as convention.
 
     The mirrors can be supplied, and a rewrite in progress must supply them. A
@@ -175,7 +179,7 @@ def checksum(image, places=None):
     return (sum(neutral) + CHECKSUM_FIELD_SUM * len(places)) & 0xFFFF
 
 
-def declare_rom_only(image):
+def declare_rom_only(image: bytes | bytearray) -> bytes:
     """A copy declaring no coprocessor, its real size, and a matching checksum.
 
     Every mirror is rewritten, and the checksum is computed after the other fields
@@ -203,7 +207,7 @@ def declare_rom_only(image):
     return bytes(declared)
 
 
-def needs_rewrite(image):
+def needs_rewrite(image: bytes | bytearray) -> bool:
     """Whether any mirror still declares a coprocessor or the wrong size."""
     places = mirrors(image)
     if not places:
@@ -218,7 +222,9 @@ def needs_rewrite(image):
 BLOCK_BYTES = 0x1000
 
 
-def changes(before, after, block=BLOCK_BYTES):
+def changes(
+    before: bytes | bytearray, after: bytes | bytearray, block: int = BLOCK_BYTES
+) -> list[int]:
     """Every position at which two images of the same length differ.
 
     A rewrite touches a few dozen bytes of a file that runs to millions, so the
@@ -227,7 +233,7 @@ def changes(before, after, block=BLOCK_BYTES):
     every byte of a four megabyte cartridge does not, and doing that across a
     library turns a survey into an overnight job.
     """
-    found = []
+    found: list[int] = []
     for start in range(0, len(before), block):
         stop = start + block
         if before[start:stop] == after[start:stop]:
