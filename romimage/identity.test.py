@@ -6,7 +6,7 @@ import zlib
 from romimage import identity
 
 
-def _image(banks: int = 1, seed: int = 1):
+def _image(banks: int = 1, seed: int = 1) -> bytes:
     generator = random.Random(seed)
     return bytes(generator.randrange(256) for _ in range(banks * 0x10000))
 

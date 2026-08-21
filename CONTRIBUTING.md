@@ -10,8 +10,10 @@ run that shows it, and a claim that cannot be checked is not ready.
 Run every gate, and read the output rather than the exit code:
 
 ```bash
+export PYTHONPATH=.:snes-mapper-python
 uvx ruff@0.16.3 format --check .
 uvx ruff@0.16.3 check .
+mypy
 pnpm install --frozen-lockfile && pnpm run format:check
 python3 -m coverage erase
 for f in $(find . -name '*.test.py' -not -path './packages/*' | sort); do
@@ -20,8 +22,33 @@ done
 python3 -m coverage report
 ```
 
+`PYTHONPATH` matters. The header reader is a submodule on the path rather than
+an installed package, and nothing here runs without it. CI sets the same value.
+
 Coverage is a hard gate at 100% statement and branch. A branch with no test
-fails the build rather than lowering the number.
+fails the build rather than lowering the number. `mypy` is strict and its
+findings are errors.
+
+## If you touch the checksum, the field offsets, or the size rule
+
+Two more things run, and neither is optional.
+
+[`conformance/hardware.test.py`](conformance/hardware.test.py) holds this
+package's constants to the figures Nintendo printed, so a citation in the
+documentation is a check that can fail rather than a claim in prose. It needs
+no cartridges and runs in CI.
+
+The census needs a library you own, so it runs on your machine and not on a
+runner:
+
+```bash
+python3 conformance/census.py "/path/to/your/library"
+```
+
+Paste the two lines that matter. A change that leaves every test passing and
+moves `carried` down is still a regression, because the four properties only
+ask whether the code agrees with itself and a rule wrong the same way every
+time passes all of them. One was, for as long as it existed.
 
 ## Tests
 

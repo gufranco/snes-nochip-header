@@ -59,6 +59,14 @@ CHECKSUM = 0x1E
 CHIPSET_ROM_ONLY = 0x00
 CHECKSUM_FIELD_SUM = 0x01FE
 CHECKSUM_FIELD_BYTES = 4
+CHECKSUM_FIELD_NEUTRAL = b"\xff\xff\x00\x00"
+"""What the four bytes count as while their own sum is being taken.
+
+Nintendo names the values rather than the total: the complement is set to FFFF
+and the checksum to 0000 before the sum begins. They add up to CHECKSUM_FIELD_SUM
+per header, which is the same thing on an image whose length is a power of two
+and is not on one that is short.
+"""
 
 KILOBYTE = 1024
 
@@ -160,23 +168,58 @@ def describe(image: bytes | bytearray) -> list[dict[str, Any]]:
     ]
 
 
+def mirrored_sum(data: bytes | bytearray) -> int:
+    """The sum Nintendo specifies, with a short image counted up to a power of two.
+
+    A cartridge whose size is not a power of two does not stop at its last byte
+    as far as the checksum is concerned. Nintendo: "If ROM size cannot be
+    expressed evenly in 2nM bit, such as 10M or 20M bit, add the remainder until
+    a total of 2nM bit is reached", with worked examples for 12, 10, 20 and 24
+    megabit. The remainder is repeated until it fills out the next power of two,
+    which is what the address decoding does to it on the board.
+
+    A remainder that is not itself a power of two is folded the same way before
+    being repeated, which the manual does not spell out and which follows from
+    the same decoding. Roughly a quarter of the retail library is not a power of
+    two, so a plain sum is not a small error.
+    """
+    length = len(data)
+    if length == 0:
+        return 0
+    if length & (length - 1) == 0:
+        return sum(data)
+    head = 1
+    while head * 2 <= length:
+        head *= 2
+    rest = data[head:]
+    filled = 1
+    while filled < len(rest):
+        filled *= 2
+    return sum(data[:head]) + mirrored_sum(rest) * (head // filled)
+
+
 def checksum(image: bytes | bytearray, places: Sequence[int] | None = None) -> int:
-    """The sixteen-bit sum, with the fields that store it counted as convention.
+    """The sixteen-bit sum, with the fields that store it set as the manual says.
+
+    Nintendo: "First, store 0FFH into the complement check area (FFDCH, FFDDH)
+    and 00H into the check sum area (FFDEH, FFDFH). Then add each byte in the ROM
+    data." Writing those four bytes rather than zeroing them and adding a
+    constant afterwards is the difference that matters on a short image, where
+    the tail is counted more than once and a constant added once would be wrong.
 
     The mirrors can be supplied, and a rewrite in progress must supply them. A
     header with its coprocessor byte cleared and its size byte corrected is, for
     the moment before the checksum is written, less recognisable as a header than
     it was: two of the four signals the map scores are the checksum agreeing with
     its complement and a plausible declared size, and the rewrite disturbs both.
-    Re-deriving the mirrors from that intermediate counts zero of them, and the
-    sum comes out short by exactly one header's worth of the convention.
+    Re-deriving the mirrors from that intermediate finds none of them.
     """
     places = mirrors(image) if places is None else places
     neutral = bytearray(image)
     for at in places:
         start = at + CHECKSUM_COMPLEMENT
-        neutral[start : start + CHECKSUM_FIELD_BYTES] = bytes(CHECKSUM_FIELD_BYTES)
-    return (sum(neutral) + CHECKSUM_FIELD_SUM * len(places)) & 0xFFFF
+        neutral[start : start + CHECKSUM_FIELD_BYTES] = CHECKSUM_FIELD_NEUTRAL
+    return mirrored_sum(neutral) & 0xFFFF
 
 
 def declare_rom_only(image: bytes | bytearray) -> bytes:

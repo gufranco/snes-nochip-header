@@ -55,6 +55,35 @@ jobs:
           sudo apt-get install -y shellcheck
           shellcheck --severity=style --shell=bash scripts/*.sh
 
+  types:
+    name: types
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .:snes-mapper-python
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install the type checker
+        run: pipx install mypy==1.14.1
+
+      # Strict, with every optional error class the version offers turned on. The
+      # errors that matter in a package that rewrites bytes inside somebody's
+      # cartridge image are the ones where an offset, a width or a None crosses a
+      # boundary, and those are exactly what the optional classes catch. The
+      # settings live in pyproject.toml so a local run and this one agree.
+      #
+      # The submodule is on the path rather than checked here. It is a separate
+      # repository with its own gate, and checking it twice would mean this one
+      # goes red for a change nobody made in it.
+      - name: Every annotation has to hold
+        run: mypy
+
   test:
     name: test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

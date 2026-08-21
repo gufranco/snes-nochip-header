@@ -1,0 +1,167 @@
+{
+  "note": "What Nintendo's own developer documentation says a cartridge header is. Every figure here was read out of the document named below rather than taken from an implementation of it, and each one carries the sentence or table row it came from so a later reader can check the reading rather than trusting it. This file is the authority on what the header IS. corpus.json, measured across a library of retail cartridges, is the authority on what real cartridges DO where the document is silent or where they disagree with it.",
+  "authority": {
+    "order": [
+      "hardware.json, for anything Nintendo stated: which byte holds what, what each value means, how the checksum is calculated",
+      "the cartridges themselves, for what a retail image actually contains, which is not always what the specification asked for",
+      "nothing else"
+    ],
+    "why": "This is a specification issued to licensees rather than a description of silicon, so a cartridge can disagree with it and still be genuine. Where a cartridge disagrees, the cartridge is the fact and the specification is the intent, and divergences.json records which is which."
+  },
+  "part": "Super NES cartridge header",
+  "verified": true,
+  "document": {
+    "publisher": "Nintendo of America Inc.",
+    "title": "SNES Development Manual, Book 1",
+    "section": "Super NES Software Submission Requirements, ROM Registration Data Specification",
+    "readOn": "2026-08-21",
+    "retrievedFrom": "archive.org/details/SNESDevManual, book1_text.pdf",
+    "sha256": "f1405241000046abba7849376d2ec53cf85f1ad2e9950d69a7c2cf1f3ff6b791",
+    "bytes": 21022582,
+    "pages": 240,
+    "note": "A scan with an OCR text layer. The numbered prose descriptions extract cleanly and every quote below came from them. The layout diagrams do not, and nothing in this file was read out of one: the field addresses are taken from the numbered headings, which print each address beside its name."
+  },
+  "facts": {
+    "registrationArea": {
+      "value": 48,
+      "quote": "The ROM Registration Data area is 48 bytes from address 00:FFB0H ~ 00:FFDFH in Super NES Memory.",
+      "manualPage": "1-2-14"
+    },
+    "headerBase": {
+      "value": 65472,
+      "note": "FFC0H, the start of the 32 byte block this package indexes from. The 48 byte area above begins 16 bytes earlier, at FFB0H, which is why the maker and game codes sit at negative offsets from the base used here.",
+      "inferred": "The manual gives absolute addresses; the base is the convention this package indexes from."
+    },
+    "mapModeAddresses": {
+      "quote": "The address in ROM for registration data, using Map Mode 20, is 007FB0H ~ 007FDFH.",
+      "corroboration": "The same passage gives 00FFB0H for Map Mode 21, 007FB0H for Map Mode 23 (SA-1), and 40FFB0H for Map Mode 25.",
+      "manualPage": "1-2-14"
+    },
+    "fields": {
+      "note": "Offsets are from FFC0H, which is how this package addresses them. The manual prints the absolute address in each heading, quoted beside it.",
+      "mapMode": {
+        "offset": 21,
+        "address": "FFD5H",
+        "quote": "Map Mode (FFD5H). This location is used to store the map mode and the speed of operation for the Super NES CPU.",
+        "values": {
+          "0x20": "Mode 20, 2.68 MHz",
+          "0x21": "Mode 21, 2.68 MHz",
+          "0x22": "Reserved for future use",
+          "0x23": "Mode 23 (SA-1), 2.68 MHz",
+          "0x25": "Mode 25, 2.68 MHz",
+          "0x30": "Mode 20, 3.58 MHz",
+          "0x31": "Mode 21, 3.58 MHz",
+          "0x35": "Mode 25, 3.58 MHz"
+        },
+        "manualPage": "1-2-17"
+      },
+      "cartridgeType": {
+        "offset": 22,
+        "address": "FFD6H",
+        "quote": "Cartridge Type (FFD6H). Indicate the game pak (cartridge) configuration.",
+        "withoutCoprocessor": {
+          "0x00": "ROM Only",
+          "0x01": "ROM + RAM",
+          "0x02": "ROM + RAM + Battery"
+        },
+        "withCoprocessorUpperNibble": {
+          "0x0": "DSP",
+          "0x1": "Super FX",
+          "0x2": "OBC1",
+          "0x3": "SA-1",
+          "0xE": "Other",
+          "0xF": "Custom Chip"
+        },
+        "withCoprocessorLowerNibble": {
+          "0x3": "ROM + Co-processor",
+          "0x4": "ROM + Co-processor + RAM",
+          "0x5": "ROM + Co-processor + RAM + Battery",
+          "0x6": "ROM + Co-processor + Battery"
+        },
+        "romOnly": 0,
+        "manualPage": "1-2-18"
+      },
+      "romSize": {
+        "offset": 23,
+        "address": "FFD7H",
+        "quote": "ROM Size (FFD7H). The program ROM size is stored at this address.",
+        "table": {
+          "0x09": "3 to 4 Mbit",
+          "0x0A": "5 to 8 Mbit",
+          "0x0B": "9 to 16 Mbit",
+          "0x0C": "17 to 32 Mbit",
+          "0x0D": "33 to 64 Mbit"
+        },
+        "note": "Each row is the base two logarithm of the upper bound expressed in kilobytes: 4 Mbit is 512 KB, and 2 to the ninth is 512. That is the rule this package implements, and it agrees with every row printed.",
+        "inferred": "the logarithm rule, which the manual gives as a table rather than as a formula",
+        "manualPage": "1-2-19"
+      },
+      "ramSize": {
+        "offset": 24,
+        "address": "FFD8H",
+        "quote": "RAM Size (FFD8H). The CPU RAM size is stored at this address. Select the appropriate code from the table below. If CPU RAM is not installed in a game pak, store 00H at address FFD8H.",
+        "table": {
+          "0x00": "No RAM",
+          "0x01": "16 Kbit",
+          "0x03": "64 Kbit",
+          "0x05": "256 Kbit",
+          "0x06": "512 Kbit",
+          "0x07": "1 Mbit"
+        },
+        "manualPage": "1-2-19"
+      },
+      "complementCheck": {
+        "offset": 28,
+        "address": "FFDCH, FFDDH",
+        "quote": "Complement Check (FFDCH, FFDDH). Store the 1's complement of the lower 2 bytes of the program check sum in the order of; FFDCH, lower and FFDDH, upper.",
+        "relation": "(FFDEH. FFDFH) + (FFDCH. FFDDH) = FFFFH",
+        "manualPage": "1-2-20"
+      },
+      "checkSum": {
+        "offset": 30,
+        "address": "FFDEH, FFDFH",
+        "quote": "Check Sum (FFDEH, FFDFH). First, store 0FFH into the complement check area (FFDCH, FFDDH) and 00H into the check sum area (FFDEH, FFDFH). Then add each byte in the ROM data.",
+        "storedOrder": "Next, store the lower 2 bytes of the check sum value into the check sum area (FFDEH, FFDFH). FFDEH will contain the lower byte and FFDFH will contain the upper byte.",
+        "manualPage": "1-2-20"
+      },
+      "fixedValue": {
+        "offset": 26,
+        "address": "FFDAH",
+        "value": 51,
+        "quote": "Fixed Value (FFDAH). Store fixed value 33H at address FFDAH.",
+        "manualPage": "1-2-20"
+      }
+    },
+    "checksumNeutralBytes": {
+      "value": "ff ff 00 00",
+      "quote": "First, store 0FFH into the complement check area (FFDCH, FFDDH) and 00H into the check sum area (FFDEH, FFDFH). Then add each byte in the ROM data.",
+      "why": "The four bytes that store the sum are inside the region being summed, which is circular. The specification resolves it by naming what those bytes count as while the sum is taken. They total 0x01FE per header, which is the same thing as writing them only while the image is a power of two.",
+      "manualPage": "1-2-20"
+    },
+    "shortImageMirroring": {
+      "quote": "If ROM size cannot be expressed evenly in 2nM bit, such as 10M or 20M bit, add the remainder until a total of 2nM bit is reached.",
+      "workedExamples": [
+        {
+          "size": "12 Mbit",
+          "rule": "(Total of first 8M bit) + [(Total of last 4M bit) x2] = Check Sum"
+        },
+        { "size": "10 Mbit", "rule": "(Total of first 8M bit) + [(Total of last 2M bit) x4]" },
+        { "size": "20 Mbit", "rule": "(Total of first 16M bit) + [(Total of last 4M bit) x4]" },
+        { "size": "24 Mbit", "rule": "(Total of first 16M bit) + [(Total of last 8M bit) x2]" }
+      ],
+      "why": "Roughly a quarter of the retail library is not a power of two. A plain sum is wrong on all of it, and this package summed plainly until the specification was read. See divergences.json entry short-image-checksum.",
+      "manualPage": "1-2-20"
+    },
+    "submissionChecksumIsADifferentThing": {
+      "quote": "To calculate the check sum, add each byte in the ROM data. The lower 2 bytes of the resulting value is the check sum. ... This method of calculation is different from the check sum on the ROM Registration Specification.",
+      "why": "The manual carries two checksums with the same name. The one on the submission sheet is a plain sum with no mirroring and no neutral bytes, and the manual says outright that it is not the one in the header. Reading the wrong section is how a plain sum gets written.",
+      "manualPage": "1-2-9"
+    }
+  },
+  "notStated": {
+    "mirroredHeaders": "The specification gives one registration area per map mode and never mentions that an image contains several byte-identical copies of it. Mirroring is a consequence of the same bank appearing at several addresses on the board, and everything this package does about it rests on the cartridges rather than on the document.",
+    "copierStubs": "A copier stub is a thing added by hardware Nintendo did not sell. The specification does not acknowledge it.",
+    "remainderThatIsNotAPowerOfTwo": "The four worked examples all have a remainder that is itself a power of two. What to do when it is not is not stated. This package folds the remainder the same way before repeating it, which follows from the same address decoding and which the retail library agrees with.",
+    "whatToDoWhenACartridgeDisagrees": "The specification tells a licensee what to store. It says nothing about an image that stores something else, and several hundred retail cartridges do."
+  }
+}

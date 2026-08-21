@@ -1,0 +1,85 @@
+name: Something is wrong
+description: A header reads the wrong thing, a rewrite produced the wrong bytes, or nothing works at all
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Almost every report here is about one cartridge, and almost every one of
+        those is settled by three numbers: its length, where the header was
+        found, and what the checksum came out as. The fields below ask for them
+        so nobody has to guess.
+
+        Never attach a cartridge and never link to one. Its SHA-256 identifies
+        it exactly, and that is all anybody needs.
+
+  - type: textarea
+    id: identity
+    attributes:
+      label: What the file is
+      description: |
+        Run this from the repository and paste all of it. It reads only lengths
+        and digests, and it prints no part of the cartridge.
+      render: text
+      placeholder: |
+        PYTHONPATH=.:snes-mapper-python python3 -c "
+        from romimage import dump, identity, rewrite
+        image = dump.read('YOUR FILE')
+        print(identity.describe(image))
+        print('mirrors', [hex(at) for at in rewrite.mirrors(image)])
+        print('checksum', hex(rewrite.checksum(image)))"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      placeholder: |
+        the checksum should match the one the cartridge carries, 0x8B4A
+    validations:
+      required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened instead
+      description: |
+        The exact output or the whole traceback. Paste it rather than describing
+        it: a summary of an error loses the part that identifies it.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: The shortest thing that shows it
+      description: Python we can run as it stands, with no editing.
+      render: python
+      placeholder: |
+        from romimage import dump, rewrite
+
+        image = dump.read("game.sfc")
+        rewrite.declare_rom_only(image)
+    validations:
+      required: true
+
+  - type: input
+    id: cartridge
+    attributes:
+      label: The cartridge, if one is involved
+      description: |
+        Its name, its region, and its SHA-256. Never attach the file itself, and
+        never link to somewhere it can be downloaded.
+      placeholder: "Star Ocean (Japan), sha256 ..."
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: The output above is complete rather than trimmed
+          required: true
+        - label: I own anything I am naming, and I have attached none of it
+          required: true

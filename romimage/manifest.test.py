@@ -3,17 +3,17 @@ import random
 import tempfile
 import unittest
 from pathlib import Path
-from typing import override
+from typing import Any, override
 
 from romimage import identity, manifest, rewrite
 
 
-def _blank(banks: int = 2, seed: int = 1):
+def _blank(banks: int = 2, seed: int = 1) -> bytearray:
     generator = random.Random(seed)
     return bytearray(generator.randrange(256) for _ in range(banks * 0x10000))
 
 
-def _cartridge(banks: int = 2, seed: int = 1, at: int = 0x007FC0, chipset: int = 0x43):
+def _cartridge(banks: int = 2, seed: int = 1, at: int = 0x007FC0, chipset: int = 0x43) -> bytes:
     image = _blank(banks, seed)
     image[at : at + 21] = b"A CARTRIDGE          "
     image[at + rewrite.MAP_MODE] = 0x20
@@ -30,7 +30,7 @@ OTHER = _cartridge(seed=2)
 CORRUPT = _cartridge(seed=3)
 
 
-def _document():
+def _document() -> dict[str, Any]:
     return {
         "canonical": {"form": "one file, no copier stub"},
         "artifacts": [

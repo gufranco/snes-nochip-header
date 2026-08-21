@@ -4,40 +4,42 @@ import unittest
 import zlib
 from pathlib import Path
 
+from mapper import COPIER_BYTES, has_copier_stub, stub_by_length
+
 from romimage import dump
 
 
-def _image(banks: int = 2, seed: int = 1):
+def _image(banks: int = 2, seed: int = 1) -> bytes:
     generator = random.Random(seed)
     return bytes(generator.randrange(256) for _ in range(banks * 0x10000))
 
 
 class CopierStubTest(unittest.TestCase):
     def test_a_whole_number_of_half_banks_carries_no_stub(self) -> None:
-        self.assertFalse(dump.has_copier_stub(_image()))
+        self.assertFalse(has_copier_stub(_image()))
 
     def test_the_same_image_with_five_hundred_and_twelve_more_bytes_does(self) -> None:
-        self.assertTrue(dump.has_copier_stub(bytes(dump.COPIER_BYTES) + _image()))
+        self.assertTrue(has_copier_stub(bytes(COPIER_BYTES) + _image()))
 
     def test_a_file_no_longer_than_the_stub_cannot_be_one(self) -> None:
-        self.assertFalse(dump.has_copier_stub(bytes(dump.COPIER_BYTES)))
+        self.assertFalse(has_copier_stub(bytes(COPIER_BYTES)))
 
     def test_a_length_of_no_recognised_shape_is_left_alone(self) -> None:
-        self.assertFalse(dump.has_copier_stub(bytes(1234)))
+        self.assertFalse(has_copier_stub(bytes(1234)))
 
     def test_the_test_is_the_one_the_header_reader_already_uses(self) -> None:
         import mapper
 
         for length in (0x20000, 0x20000 + 0x200, 0x200, 1234, 0x8000 + 0x200):
             self.assertEqual(
-                dump.has_copier_stub(bytes(length)),
+                has_copier_stub(bytes(length)),
                 mapper.has_copier_stub(bytes(length)),
             )
 
     def test_stripping_removes_exactly_the_stub(self) -> None:
         image = _image()
 
-        self.assertEqual(dump.strip_copier_stub(bytes(dump.COPIER_BYTES) + image), image)
+        self.assertEqual(dump.strip_copier_stub(bytes(COPIER_BYTES) + image), image)
 
     def test_stripping_an_image_that_never_had_one_changes_nothing(self) -> None:
         image = _image()
@@ -46,7 +48,7 @@ class CopierStubTest(unittest.TestCase):
 
 
 class SplitSetTest(unittest.TestCase):
-    def _set(self, folder, names, parts) -> None:
+    def _set(self, folder: str, names: list[str], parts: list[bytes]) -> None:
         for name, part in zip(names, parts, strict=True):
             (Path(folder) / name).write_bytes(part)
 
@@ -57,7 +59,7 @@ class SplitSetTest(unittest.TestCase):
             self._set(
                 folder,
                 ["SF6A.078", "SF6B.078"],
-                [bytes(dump.COPIER_BYTES) + first, second],
+                [bytes(COPIER_BYTES) + first, second],
             )
 
             self.assertEqual(dump.read(folder), first + second)
@@ -110,7 +112,7 @@ class SplitSetTest(unittest.TestCase):
 class LengthTest(unittest.TestCase):
     def test_it_agrees_with_the_test_that_reads_the_bytes(self) -> None:
         for size in (0, 0x200, 0x8000, 0x8200, 0x20000, 0x20200, 1234):
-            self.assertEqual(dump.stub_by_length(size), dump.has_copier_stub(bytes(size)), size)
+            self.assertEqual(stub_by_length(size), has_copier_stub(bytes(size)), size)
 
 
 class FormTest(unittest.TestCase):
@@ -124,7 +126,7 @@ class FormTest(unittest.TestCase):
     def test_a_file_with_a_stub_says_so(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "game.smc"
-            path.write_bytes(bytes(dump.COPIER_BYTES) + _image())
+            path.write_bytes(bytes(COPIER_BYTES) + _image())
 
             self.assertEqual(dump.form(path), dump.COPIER)
 
@@ -142,7 +144,7 @@ class ReadTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "game.smc"
-            path.write_bytes(bytes(dump.COPIER_BYTES) + image)
+            path.write_bytes(bytes(COPIER_BYTES) + image)
 
             self.assertEqual(dump.read(path), image)
 

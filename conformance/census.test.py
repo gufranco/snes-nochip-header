@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from typing import Any
 
 from conformance import census
 from romimage import rewrite
@@ -13,7 +14,7 @@ from romimage import rewrite
 
 def _cartridge(
     banks: int = 2, seed: int = 1, at: int = 0x007FC0, chipset: int = 0x43, mapping: int = 0x20
-):
+) -> bytes:
     generator = random.Random(seed)
     image = bytearray(generator.randrange(256) for _ in range(banks * 0x10000))
     image[at : at + 21] = b"A CARTRIDGE          "
@@ -74,7 +75,7 @@ class ImagesTest(unittest.TestCase):
 
 
 class SurveyTest(unittest.TestCase):
-    def _library(self, folder, images):
+    def _library(self, folder: str, images: list[bytes]) -> str:
         for index, image in enumerate(images):
             (Path(folder) / f"{index:03d}.sfc").write_bytes(image)
         return folder
@@ -156,6 +157,41 @@ class SurveyTest(unittest.TestCase):
 
             self.assertEqual(found["disagreed_with_the_map"], found["refused"])
 
+    def test_a_cartridge_carrying_the_checksum_this_package_computes_is_counted(self) -> None:
+        image = rewrite.declare_rom_only(_cartridge())
+
+        with tempfile.TemporaryDirectory() as folder:
+            found = census.survey(self._library(folder, [image]))
+
+            self.assertEqual(
+                (found["observations"]["carried"], found["observations"]["carried_subjects"]),
+                (1, 1),
+            )
+
+    def test_a_cartridge_carrying_a_different_checksum_is_named_rather_than_dropped(self) -> None:
+        image = bytearray(rewrite.declare_rom_only(_cartridge()))
+        at = 0x007FC0
+        image[at + rewrite.CHECKSUM] ^= 0x01
+        image[at + rewrite.CHECKSUM_COMPLEMENT] ^= 0x01
+
+        with tempfile.TemporaryDirectory() as folder:
+            found = census.survey(self._library(folder, [bytes(image)]))
+
+            self.assertEqual(
+                (
+                    found["observations"]["carried"],
+                    found["observations"]["carried_subjects"],
+                    len(found["carrying_a_different_checksum"]),
+                ),
+                (0, 1, 1),
+            )
+
+    def test_a_cartridge_whose_own_pair_disagrees_is_not_a_subject(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            found = census.survey(self._library(folder, [_cartridge()]))
+
+            self.assertEqual(found["observations"]["carried_subjects"], 0)
+
     def test_a_cartridge_that_needs_no_rewrite_is_not_counted_as_needing_one(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             found = census.survey(self._library(folder, [rewrite.declare_rom_only(_cartridge())]))
@@ -182,7 +218,7 @@ class FailedTest(unittest.TestCase):
 
 
 class CorpusTest(unittest.TestCase):
-    def _survey(self, images):
+    def _survey(self, images: list[bytes]) -> dict[str, Any]:
         with tempfile.TemporaryDirectory() as folder:
             for index, image in enumerate(images):
                 (Path(folder) / f"{index:03d}.sfc").write_bytes(image)
@@ -248,13 +284,13 @@ class MainTest(unittest.TestCase):
 
 
 class ReportTest(unittest.TestCase):
-    def _said(self, found):
+    def _said(self, found: dict[str, Any]) -> str:
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
             census.report(found)
         return buffer.getvalue()
 
-    def _survey(self, images):
+    def _survey(self, images: list[bytes]) -> dict[str, Any]:
         with tempfile.TemporaryDirectory() as folder:
             for index, image in enumerate(images):
                 (Path(folder) / f"{index:03d}.sfc").write_bytes(image)

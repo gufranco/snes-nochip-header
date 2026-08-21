@@ -24,6 +24,13 @@ whole rewrite and checks four properties that must hold on every real image:
 - nothing outside a header changed
 - rewriting an already rewritten image changes nothing
 
+Beside them it measures one thing that is not a property: whether the checksum
+this package computes is the one the cartridge already carries. That is the only
+check which asks the artefact rather than asking the code whether it agrees with
+itself, and it is the one that would have caught a checksum rule that was wrong
+the same way every time. It is reported rather than enforced, because a hack that
+changed content without recomputing its checksum is not a defect here.
+
 Those checks need the cartridges, so they run here rather than in the test suite,
 and their result is a count in the corpus rather than a claim the suite can
 verify on its own. What the suite verifies is the part that replays from the
@@ -54,6 +61,23 @@ from romimage import dump, rewrite
 SUFFIXES = (".sfc", ".smc", ".fig", ".swc")
 
 PROPERTIES = ("complement", "recompute", "confined", "settled")
+"""What must hold on every image, whatever it is. A failure here is a defect."""
+
+OBSERVATIONS = ("carried",)
+"""What is measured and reported without gating the verdict.
+
+Whether this package computes the checksum a cartridge already carries is a
+statement about the cartridge as much as about the code. It holds on a retail
+image and does not hold on a hack that changed content without recomputing, and
+a library of several thousand contains a great many of those. Making it a
+property would turn every hack into a failure and drown the handful of retail
+cartridges that genuinely disagree.
+
+It is still the most valuable thing the census measures, because it is the only
+check that asks the artefact instead of asking the code whether it agrees with
+itself. The four properties above are all internal, and a checksum rule wrong the
+same way every time passed all four for as long as it existed.
+"""
 
 
 def images(source: Path | str, limit: int | None = None) -> Iterator[tuple[str, bytes]]:
@@ -78,8 +102,31 @@ def images(source: Path | str, limit: int | None = None) -> Iterator[tuple[str, 
                 yield Path(name).name, member.read()
 
 
+def agrees_with_the_cartridge(image: bytes, places: Sequence[int]) -> bool | None:
+    """Whether this package's checksum is the one the cartridge already carries.
+
+    The four properties beside this one are all internal: they check that the
+    package agrees with itself. A checksum rule that was wrong the same way every
+    time would pass all four, and one did. It summed a short image once where
+    Nintendo specifies the remainder be repeated until the total reaches a power
+    of two, and that is roughly a quarter of the retail library.
+
+    This is the only check here that asks the artefact rather than the code. It
+    answers None for a cartridge whose own stored pair does not agree, because
+    such a header is not a subject: there is nothing to be right about.
+    """
+    at = places[0]
+    stored = image[at + rewrite.CHECKSUM] | (image[at + rewrite.CHECKSUM + 1] << 8)
+    complement = image[at + rewrite.CHECKSUM_COMPLEMENT] | (
+        image[at + rewrite.CHECKSUM_COMPLEMENT + 1] << 8
+    )
+    if stored ^ complement != 0xFFFF:
+        return None
+    return rewrite.checksum(image, places) == stored
+
+
 def properties_of(image: bytes, places: Sequence[int]) -> dict[str, bool]:
-    """The four things that must be true of every rewrite, on this cartridge."""
+    """The things that must be true of every rewrite, on this cartridge."""
     written = rewrite.declare_rom_only(image)
     at = places[0]
 
@@ -117,8 +164,10 @@ def survey(library: Path | str, limit: int | None = None) -> dict[str, Any]:
     coprocessor: collections.Counter[str] = collections.Counter()
     mirrors: collections.Counter[int] = collections.Counter()
     held: collections.Counter[str] = collections.Counter()
+    seen: collections.Counter[str] = collections.Counter()
     forms: collections.Counter[str] = collections.Counter()
     failures: list[dict[str, str]] = []
+    disagreeing: list[str] = []
     read = refused = wanted = disagreed = 0
 
     for name, blob in images(library, limit):
@@ -161,6 +210,13 @@ def survey(library: Path | str, limit: int | None = None) -> dict[str, Any]:
             held[property_name] += ok
         failures.extend(failed(name, properties))
 
+        carried = agrees_with_the_cartridge(image, places)
+        if carried is not None:
+            seen["carried_subjects"] += 1
+            seen["carried"] += carried
+            if not carried:
+                disagreeing.append(name)
+
     return {
         "read": read,
         "refused": refused,
@@ -172,6 +228,11 @@ def survey(library: Path | str, limit: int | None = None) -> dict[str, Any]:
         "coprocessor": dict(coprocessor.most_common()),
         "mirrors": {str(count): total for count, total in sorted(mirrors.items())},
         "properties": {name: held[name] for name in PROPERTIES},
+        "observations": {
+            **{name: seen[name] for name in OBSERVATIONS},
+            **{f"{name}_subjects": seen[f"{name}_subjects"] for name in OBSERVATIONS},
+        },
+        "carrying_a_different_checksum": disagreeing,
         "failures": failures,
         "cases": cases,
     }
@@ -194,6 +255,7 @@ def corpus(found: Mapping[str, Any]) -> dict[str, Any]:
         "refused": found["refused"],
         "disagreed_with_the_map": found["disagreed_with_the_map"],
         "properties_held": found["properties"],
+        "observations": found["observations"],
         "cases": cases,
     }
 
@@ -206,6 +268,10 @@ def report(found: Mapping[str, Any]) -> None:
     print(f"  {found['needs_rewrite']} still declare a coprocessor or the wrong size")
     for name in PROPERTIES:
         print(f"  {name:<12} held on {found['properties'][name]} of {found['read']}")
+    for name in OBSERVATIONS:
+        seen = found["observations"][name]
+        subjects = found["observations"][f"{name}_subjects"]
+        print(f"  {name:<12} true of {seen} of {subjects} images with a self-consistent header")
     for failure in found["failures"][:10]:
         print(f"  FAILED {failure['property']}: {failure['file']}")
 

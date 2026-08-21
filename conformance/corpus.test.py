@@ -3,13 +3,15 @@ import io
 import json
 import tempfile
 import unittest
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 from conformance import corpus
 from romimage import rewrite
 
 
-def _case(**changes):
+def _case(**changes: Any) -> dict[str, Any]:
     base = {
         "size": 0x100000,
         "map": 0x20,
@@ -23,7 +25,7 @@ def _case(**changes):
     return {**base, **changes}
 
 
-def _document(cases):
+def _document(cases: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "measured_across": sum(case["cartridges"] for case in cases),
         "refused": 0,
@@ -100,7 +102,7 @@ class LoadTest(unittest.TestCase):
 
 
 class ReportTest(unittest.TestCase):
-    def _said(self, document, wrong):
+    def _said(self, document: dict[str, Any], wrong: Sequence[Mapping[str, Any]]) -> str:
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
             corpus.report(document, wrong)

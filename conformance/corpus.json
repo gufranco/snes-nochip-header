@@ -8,6 +8,10 @@
     "confined": 7330,
     "settled": 7330
   },
+  "observations": {
+    "carried": 4502,
+    "carried_subjects": 7167
+  },
   "cases": [
     {
       "chipset": 0,

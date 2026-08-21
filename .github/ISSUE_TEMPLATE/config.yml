@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Why is my checksum different from the one on the cartridge?
+    url: https://github.com/gufranco/snes-rom-image-python#where-the-facts-come-from
+    about: Nintendo specifies two different sums and only one is in the header. The README says which.
+  - name: Which cartridges still disagree, and why
+    url: https://github.com/gufranco/snes-rom-image-python/blob/main/conformance/divergences.json
+    about: Twelve retail cartridges are named there, with what is known about each.
+  - name: Finding the header in the first place
+    url: https://github.com/gufranco/snes-mapper-python
+    about: That job belongs to the header reader, not to this package.

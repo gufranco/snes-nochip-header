@@ -23,7 +23,7 @@
   <a href="https://github.com/gufranco/snes-rom-image-python/issues">Issues</a>
 </p>
 
-**489** declarations, **0** failures · **4** properties checked on every one of **7,330** cartridges · **172** tests · **100%** statement and branch coverage
+**489** declarations, **0** failures · **4** properties checked on every one of **7,330** cartridges · the computed checksum matches **2,768** of **2,780** retail cartridges · **219** tests · **100%** statement and branch coverage
 
 ```python
 from romimage import dump, rewrite
@@ -159,7 +159,18 @@ rewrite.checksum(rewrite.declare_rom_only(image)) == written_value
 # True, because the four checksum bytes count as FF FF 00 00
 ```
 
-The sum is taken over the whole image including the fields holding the result, which cannot be known before the sum. Zero them, add `0x01FE` per mirror, and the circularity resolves.
+The sum is taken over the whole image including the fields holding the result, which cannot be known before the sum. Nintendo's instruction resolves it by naming what those four bytes count as: "First, store 0FFH into the complement check area (FFDCH, FFDDH) and 00H into the check sum area (FFDEH, FFDFH). Then add each byte in the ROM data." Every mirror gets them, not only the first.
+
+### A cartridge shorter than a power of two counts its tail more than once
+
+```python
+rewrite.mirrored_sum(twelve_megabit)
+# the first eight megabit once, the last four twice
+```
+
+Nintendo: "If ROM size cannot be expressed evenly in 2nM bit, such as 10M or 20M bit, add the remainder until a total of 2nM bit is reached." A remainder that is not itself a power of two folds the same way before it repeats.
+
+A quarter of the retail library is built this way, and summing every byte once is wrong on almost all of it. That is not a rounding difference: it is the wrong number, and it is why this rule is checked against the cartridges rather than against itself.
 
 ### A rewrite in progress is not a cartridge
 
@@ -190,6 +201,21 @@ identity.AUTHORITATIVE
 
 CRC32 is a 32-bit error code. MD5 and SHA-1 are collision-broken. All three are published so a reader can find their copy in a database that still indexes by them, and none of them is allowed to accept a file.
 
+## Where the facts come from
+
+Two sources, in order, and they are not the same kind of thing.
+
+**Nintendo's SNES Development Manual, Book 1** decides what each byte of the header means, what its values are, and how the checksum is calculated. [`conformance/hardware.json`](conformance/hardware.json) pins it fact by fact, each with the sentence it came from and the page it is on, and [`conformance/hardware.test.py`](conformance/hardware.test.py) holds this package's constants to it, so a citation here is a test that can fail rather than a claim in prose.
+
+**A retail cartridge** decides everything the manual does not. The manual is an instruction issued to licensees rather than a description of silicon, so a genuine cartridge can disagree with it and still be genuine. Where one does, the cartridge is the fact.
+
+Nothing else is evidence. No emulator, no wiki, no other implementation of this same job.
+
+> [!WARNING]
+> The manual describes two different things called a check sum, and only one of them is in the header. Page 1-2-9 gives a plain sum for the submission sheet, and says outright that it "is different from the check sum on the ROM Registration Specification". Page 1-2-20 gives the real one. Reading the first is how this package summed every byte once for as long as it did.
+
+[`conformance/divergences.json`](conformance/divergences.json) records every place the two sources part company, what this package follows, and what evidence would settle it.
+
 ## What a real library actually contains
 
 Measured across **7,330** cartridges, with 249 refused for carrying no readable header:
@@ -212,6 +238,17 @@ Four properties were checked on every cartridge, not on a sample:
 | A second rewrite changes nothing | 7,330 of 7,330 |
 
 Every one of those four failed on some cartridge at some point in getting here, and each failure was a defect rather than a strange cartridge. A bootleg with a blank title. A public-domain demo too small for the size band a reader scores against. Neither would have been found by reasoning about the code.
+
+One more thing is measured and reported without deciding anything: whether the checksum this package computes is the one already written on the cartridge.
+
+| Population | Agrees |
+|:-----------|-------:|
+| Licensed retail cartridges | 2,768 of 2,780 |
+| Every image with a self-consistent header, hacks included | 4,502 of 7,167 |
+
+Those are two different populations and one number for both would be misleading. A hack that changed content without recomputing is not a defect here, which is why this is reported rather than enforced.
+
+It is also the only one of the five that asks the cartridge rather than asking the code whether it agrees with itself, and it is the one that caught a checksum rule wrong on 630 of the 633 short retail cartridges it had been run over. The other four had held on all 7,330 the whole time. [`conformance/divergences.json`](conformance/divergences.json) names the twelve retail cartridges that still disagree and what is known about each.
 
 > [!NOTE]
 > A file with no readable header is counted as refused rather than guessed at. Prototypes and unfinished dumps often carry a blank one, and inventing a header for them would put fiction into a corpus of facts.
@@ -261,6 +298,9 @@ conformance/
   census.py       walks a library you own and checks the rewrite on all of it
   corpus.py       replays every declaration the library contained
   corpus.json     489 declarations covering 7,330 cartridges
+  hardware.json   Nintendo's specification, pinned fact by fact
+  hardware.test.py  this package's constants against those facts
+  divergences.json  every place a real cartridge and the specification part company
 packages/
   snes-mapper     the header reader, pinned rather than copied
 ```
@@ -278,8 +318,9 @@ for f in romimage/*.test.py conformance/*.test.py; do python3 "$f"; done
 | Identity | [`romimage/identity.test.py`](romimage/identity.test.py) | The five values, and that only one of them decides |
 | Rewrite | [`romimage/rewrite.test.py`](romimage/rewrite.test.py) | Mirrors, checksum convention, size exponent, confinement, idempotence |
 | Manifest | [`romimage/manifest.test.py`](romimage/manifest.test.py) | Every diagnosis, and what each one tells the reader to do |
-| Census | [`conformance/census.test.py`](conformance/census.test.py) | Folders, archives, tallies, and the four properties |
+| Census | [`conformance/census.test.py`](conformance/census.test.py) | Folders, archives, tallies, the four properties, and the observation |
 | Corpus | [`conformance/corpus.test.py`](conformance/corpus.test.py) | The whole shipped set, replayed |
+| Specification | [`conformance/hardware.test.py`](conformance/hardware.test.py) | Every field offset, value, and checksum rule against the figures Nintendo printed |
 
 Coverage is enforced at 100% of statements and branches by [`pyproject.toml`](pyproject.toml).
 

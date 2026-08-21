@@ -2,19 +2,25 @@ import itertools
 import random
 import unittest
 
+from mapper.header import HEADER_BYTES, NoHeader
+
 from romimage import rewrite
 
 
-def _blank(banks: int = 2, seed: int = 1):
+def _blank(banks: int = 2, seed: int = 1) -> bytearray:
     generator = random.Random(seed)
     return bytearray(generator.randrange(256) for _ in range(banks * 0x10000))
 
 
 def _stamp(
-    image, at, title: bytes = b"A CARTRIDGE          ", chipset: int = 0x43, mapping: int = 0x20
+    image: bytearray,
+    at: int,
+    title: bytes = b"A CARTRIDGE          ",
+    chipset: int = 0x43,
+    mapping: int = 0x20,
 ) -> None:
     """Write a whole header, because a real mirror is byte-identical to the first."""
-    block = bytearray(rewrite.HEADER_BYTES)
+    block = bytearray(HEADER_BYTES)
     block[: len(title)] = title
     block[rewrite.MAP_MODE] = mapping
     block[rewrite.CHIPSET] = chipset
@@ -23,10 +29,15 @@ def _stamp(
     block[0x19] = 0x01
     block[0x1A] = 0x02
     block[0x1B] = 0x03
-    image[at : at + rewrite.HEADER_BYTES] = block
+    image[at : at + HEADER_BYTES] = block
 
 
-def _cartridge(banks: int = 2, seed: int = 1, at=(0x007FC0,), chipset: int = 0x43):
+def _cartridge(
+    banks: int = 2,
+    seed: int = 1,
+    at: tuple[int, ...] = (0x007FC0,),
+    chipset: int = 0x43,
+) -> bytes:
     image = _blank(banks, seed)
     for place in at:
         _stamp(image, place, chipset=chipset)
@@ -84,20 +95,20 @@ class MirrorTest(unittest.TestCase):
         self.assertEqual(rewrite.mirrors(_cartridge(at=(0x00FFC0,))), [0x00FFC0])
 
     def test_a_header_of_spaces_identifies_nothing(self) -> None:
-        self.assertFalse(rewrite.identifies(b" " * rewrite.HEADER_BYTES))
+        self.assertFalse(rewrite.identifies(b" " * HEADER_BYTES))
 
     def test_a_header_of_zeroes_identifies_nothing_either(self) -> None:
-        self.assertFalse(rewrite.identifies(bytes(rewrite.HEADER_BYTES)))
+        self.assertFalse(rewrite.identifies(bytes(HEADER_BYTES)))
 
     def test_a_header_of_all_ones_identifies_nothing_either(self) -> None:
-        self.assertFalse(rewrite.identifies(b"\xff" * rewrite.HEADER_BYTES))
+        self.assertFalse(rewrite.identifies(b"\xff" * HEADER_BYTES))
 
     def test_one_byte_that_is_not_padding_is_enough_to_identify(self) -> None:
         self.assertTrue(rewrite.identifies(b" " * 31 + b"A"))
 
     def test_a_header_of_padding_is_placed_but_never_searched_for(self) -> None:
         image = bytearray(_blank(banks=2, seed=21))
-        image[0x007FC0 : 0x007FC0 + rewrite.HEADER_BYTES] = b" " * rewrite.HEADER_BYTES
+        image[0x007FC0 : 0x007FC0 + HEADER_BYTES] = b" " * HEADER_BYTES
         image[0x010000 : 0x010000 + 0x1000] = b" " * 0x1000
 
         self.assertEqual(rewrite.mirrors(bytes(image)), [0x007FC0])
@@ -105,17 +116,14 @@ class MirrorTest(unittest.TestCase):
     def test_no_two_mirrors_overlap(self) -> None:
         image = bytearray(_blank(banks=2, seed=12))
         _stamp(image, 0x007FC0)
-        block = bytes(image[0x007FC0 : 0x007FC0 + rewrite.HEADER_BYTES])
+        block = bytes(image[0x007FC0 : 0x007FC0 + HEADER_BYTES])
         image[0x010000 : 0x010000 + len(block) * 3] = block * 3
 
         found = rewrite.mirrors(bytes(image))
 
         self.assertEqual(len(found), len(set(found)))
         self.assertTrue(
-            all(
-                second - first >= rewrite.HEADER_BYTES
-                for first, second in itertools.pairwise(found)
-            )
+            all(second - first >= HEADER_BYTES for first, second in itertools.pairwise(found))
         )
 
     def test_a_title_that_appears_in_the_data_is_not_a_mirror(self) -> None:
@@ -151,6 +159,64 @@ class DescribeTest(unittest.TestCase):
         self.assertEqual(rewrite.describe(bytes(0x20000)), [])
 
 
+class MirroredSumTest(unittest.TestCase):
+    """The rule Nintendo prints for an image that is not a power of two.
+
+    "If ROM size cannot be expressed evenly in 2nM bit, such as 10M or 20M bit,
+    add the remainder until a total of 2nM bit is reached." The four worked
+    examples in the manual are four of the cases below, and they are the reason a
+    plain sum is wrong on a quarter of the retail library.
+    """
+
+    def test_a_power_of_two_is_summed_once(self) -> None:
+        data = bytes(range(256)) * 4
+
+        self.assertEqual(rewrite.mirrored_sum(data), sum(data))
+
+    def test_twelve_megabit_counts_its_last_four_twice(self) -> None:
+        head = bytes([1]) * 0x100000
+        tail = bytes([2]) * 0x80000
+
+        self.assertEqual(rewrite.mirrored_sum(head + tail), sum(head) + 2 * sum(tail))
+
+    def test_ten_megabit_counts_its_last_two_four_times(self) -> None:
+        head = bytes([1]) * 0x100000
+        tail = bytes([2]) * 0x40000
+
+        self.assertEqual(rewrite.mirrored_sum(head + tail), sum(head) + 4 * sum(tail))
+
+    def test_twenty_megabit_counts_its_last_four_four_times(self) -> None:
+        head = bytes([1]) * 0x200000
+        tail = bytes([2]) * 0x80000
+
+        self.assertEqual(rewrite.mirrored_sum(head + tail), sum(head) + 4 * sum(tail))
+
+    def test_twenty_four_megabit_counts_its_last_eight_twice(self) -> None:
+        head = bytes([1]) * 0x200000
+        tail = bytes([2]) * 0x100000
+
+        self.assertEqual(rewrite.mirrored_sum(head + tail), sum(head) + 2 * sum(tail))
+
+    def test_a_remainder_that_is_not_a_power_of_two_is_folded_before_it_repeats(
+        self,
+    ) -> None:
+        head = bytes([1]) * 0x100000
+        tail = bytes([2]) * 0x40000 + bytes([3]) * 0x20000
+
+        folded = rewrite.mirrored_sum(tail)
+
+        self.assertEqual(rewrite.mirrored_sum(head + tail), sum(head) + 2 * folded)
+
+    def test_and_the_whole_image_reaches_the_next_power_of_two(self) -> None:
+        head = bytes([1]) * 0x100000
+        tail = bytes([1]) * 0x40000 + bytes([1]) * 0x20000
+
+        self.assertEqual(rewrite.mirrored_sum(head + tail), 0x200000)
+
+    def test_nothing_sums_to_nothing(self) -> None:
+        self.assertEqual(rewrite.mirrored_sum(b""), 0)
+
+
 class ChecksumTest(unittest.TestCase):
     def test_it_ignores_whatever_the_checksum_fields_held(self) -> None:
         image = bytearray(_cartridge())
@@ -182,7 +248,7 @@ class SmallCartridgeTest(unittest.TestCase):
     before the new checksum is written the header is no longer placeable.
     """
 
-    def _small(self):
+    def _small(self) -> bytes:
         image = _blank(banks=1, seed=31)
         _stamp(image, 0x007FC0)
         return bytes(image[:0x8000])
@@ -193,11 +259,13 @@ class SmallCartridgeTest(unittest.TestCase):
 
         self.assertEqual(rewrite.checksum(image, places), rewrite.checksum(image))
 
-    def test_supplying_no_mirrors_leaves_out_the_convention(self) -> None:
-        image = self._small()
-        places = rewrite.mirrors(image)
+    def test_supplying_no_mirrors_leaves_the_stored_bytes_where_they_are(self) -> None:
+        image = bytearray(self._small())
+        places = rewrite.mirrors(bytes(image))
+        at = places[0] + rewrite.CHECKSUM_COMPLEMENT
+        image[at : at + rewrite.CHECKSUM_FIELD_BYTES] = bytes(rewrite.CHECKSUM_FIELD_BYTES)
 
-        difference = rewrite.checksum(image, places) - rewrite.checksum(image, [])
+        difference = rewrite.checksum(bytes(image), places) - rewrite.checksum(bytes(image), [])
 
         self.assertEqual(difference, rewrite.CHECKSUM_FIELD_SUM * len(places))
 
@@ -272,14 +340,12 @@ class DeclareTest(unittest.TestCase):
         outside = [
             at
             for at in rewrite.changes(image, declared)
-            if not any(
-                place <= at < place + rewrite.HEADER_BYTES for place in rewrite.mirrors(image)
-            )
+            if not any(place <= at < place + HEADER_BYTES for place in rewrite.mirrors(image))
         ]
         self.assertEqual(outside, [])
 
     def test_an_image_with_no_header_is_refused_rather_than_stamped(self) -> None:
-        with self.assertRaises(rewrite.NoHeader):
+        with self.assertRaises(NoHeader):
             rewrite.declare_rom_only(bytes(0x20000))
 
 
@@ -297,7 +363,7 @@ class NeedsTest(unittest.TestCase):
         self.assertTrue(rewrite.needs_rewrite(bytes(image)))
 
     def test_an_image_with_no_header_is_refused_rather_than_answered(self) -> None:
-        with self.assertRaises(rewrite.NoHeader):
+        with self.assertRaises(NoHeader):
             rewrite.needs_rewrite(bytes(0x20000))
 
 

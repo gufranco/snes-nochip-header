@@ -1,0 +1,150 @@
+{
+  "note": "Every place Nintendo's specification and the retail library disagree, and every place this package models something the specification does not settle. Each entry names what the document says, what the cartridges do, which one this package follows, and what evidence would close the question.",
+  "authority": "hardware.json holds the ladder. Rung 1 is Nintendo's developer specification, rung 2 is a retail cartridge, rung 3 is nothing. The order is unusual here and deliberate: the specification is an instruction to a licensee rather than a description of silicon, so a genuine cartridge that disagrees with it is a fact about cartridges rather than an error.",
+  "readOn": "2026-08-21",
+  "divergences": [
+    {
+      "id": "short-image-checksum",
+      "severity": "correctedDefect",
+      "status": "closed",
+      "topic": "How the checksum is taken over an image whose length is not a power of two.",
+      "documentSays": {
+        "rung": 1,
+        "claim": "The remainder is added repeatedly until the total reaches a power of two.",
+        "quote": "If ROM size cannot be expressed evenly in 2nM bit, such as 10M or 20M bit, add the remainder until a total of 2nM bit is reached.",
+        "source": "SNES Development Manual Book 1, manual page 1-2-20, with worked examples for 12, 10, 20 and 24 megabit"
+      },
+      "thisPackageDid": {
+        "claim": "Summed every byte exactly once, whatever the length.",
+        "why": "The manual carries two checksums with the same name and only one of them mirrors. The submission-sheet checksum on page 1-2-9 is a plain sum, and that page says so outright: \"This method of calculation is different from the check sum on the ROM Registration Specification.\""
+      },
+      "measured": {
+        "subjects": 2780,
+        "note": "Retail cartridges from the licensed regions whose own stored checksum and complement agree, so that there is something to be right about.",
+        "before": {
+          "powerOfTwo": "2142 of 2147 agreed",
+          "short": "3 of 633 agreed"
+        },
+        "after": {
+          "powerOfTwo": "2142 of 2147 agree",
+          "short": "626 of 633 agree"
+        }
+      },
+      "packageFollows": "document",
+      "howItSurvived": "Every property the census checked was internal: that the value and its complement are complements, that recomputing over the output gives back what was written, that nothing outside a header moved, that a second rewrite changes nothing. A rule wrong the same way every time passes all four. Nothing compared the computed value against the value the cartridge already carried, and that check has now been added as a fifth property named carried.",
+      "wouldReopenIt": "A retail cartridge that is not a power of two, whose header is self-consistent, and whose stored checksum matches a plain sum."
+    },
+    {
+      "id": "cartridges-that-still-disagree",
+      "severity": "unresolved",
+      "status": "open",
+      "topic": "Twelve retail images whose stored checksum matches neither rule.",
+      "documentSays": {
+        "rung": 1,
+        "claim": "Every cartridge should carry the checksum the specification defines."
+      },
+      "cartridgesDo": {
+        "rung": 2,
+        "claim": "Twelve of 2780 do not, and five of those twelve are a power of two, so mirroring is not what separates them."
+      },
+      "groups": [
+        {
+          "what": "Competition and prototype cartridges",
+          "which": "Campus Challenge '92, two PowerFest 94 titles, a MACS training cartridge marked as a bad dump",
+          "reading": "Three of these store a checksum of zero, which is not a checksum. These were never submitted through the process the specification governs."
+        },
+        {
+          "what": "Modern re-releases",
+          "which": "four Trials of Mana images from a Collection of Mana build, all storing the same value, and one Switch Online build of Pop'n TwinBee",
+          "reading": "Re-releases assembled decades later by a process that had no reason to honour a submission requirement."
+        },
+        {
+          "what": "Two SPC7110 cartridges and one other",
+          "which": "both Tengai Makyou Zero images at 40 Mbit, and Momotarou Dentetsu Happy at 24 Mbit",
+          "reading": "Not explained. These are ordinary retail Japanese releases with self-consistent headers, and they are the only entries here that might indicate a rule this package still has wrong."
+        }
+      ],
+      "packageFollows": "document",
+      "consequence": "This package computes the specified checksum for these images, which is not the one they carry. Rewriting one of them therefore changes its checksum to the specified value.",
+      "wouldSettleIt": [
+        "For the last group, a second cartridge at the same size from the same publisher, to tell a per-title accident from a rule.",
+        "For the SPC7110 pair specifically, whether the decompression hardware changes what the console reads at the top of the address space, which would change what a sum over the image means."
+      ],
+      "why": "Named rather than folded into a pass rate. Twelve is small and three of them are unexplained, and a summary that reported only the agreement figure would hide that."
+    },
+    {
+      "id": "mirrored-headers-undocumented",
+      "severity": "unstated",
+      "status": "open",
+      "topic": "That an image contains several byte-identical copies of its header.",
+      "documentSays": {
+        "rung": 1,
+        "claim": "Nothing. The specification gives one registration area per map mode and never mentions copies."
+      },
+      "cartridgesDo": {
+        "rung": 2,
+        "claim": "Carry up to thirty two identical copies, because the same bank is visible at several addresses."
+      },
+      "packageFollows": "cartridges",
+      "consequence": "Every mirror is rewritten and every mirror's neutral bytes are set before the sum. A tool that updates one copy produces an image that works in whichever reader it was tested against.",
+      "wouldSettleIt": [
+        "Nothing needed. It is a consequence of the address decoding rather than a question."
+      ]
+    },
+    {
+      "id": "coprocessor-nibbles-outside-the-table",
+      "severity": "unstated",
+      "status": "open",
+      "topic": "Two coprocessor codes whose upper nibble the specification does not list.",
+      "documentSays": {
+        "rung": 1,
+        "claim": "Six upper nibbles: 0 for DSP, 1 for Super FX, 2 for OBC1, 3 for SA-1, E for Other and F for Custom Chip.",
+        "quote": "Cartridge Type (FFD6H). Indicate the game pak (cartridge) configuration. Use one of the tables below, depending upon whether or not a co-processor is used.",
+        "source": "SNES Development Manual Book 1, manual page 1-2-18"
+      },
+      "cartridgesDo": {
+        "rung": 2,
+        "claim": "Retail cartridges carry 43H and 45H for the S-DD1 and 55H for the S-RTC, whose upper nibbles are 4 and 5. Neither appears in the table.",
+        "examples": "Star Ocean and Street Fighter Alpha 2 carry the S-DD1 codes; Daikaijuu Monogatari II carries the S-RTC code."
+      },
+      "packageFollows": "cartridges",
+      "consequence": "This package names those three codes and treats them as coprocessor declarations, which is what a rewrite has to do to clear them. Nothing about them rests on a Nintendo document.",
+      "why": "The revision of the specification read here predates those parts. Nintendo either extended the table in a later revision nobody has published, or assigned the codes without doing so. Either way the cartridges are the fact and the table is incomplete rather than contradicted.",
+      "wouldSettleIt": [
+        "A later revision of the development manual with a longer table.",
+        "A Nintendo licensee bulletin assigning the codes."
+      ]
+    },
+    {
+      "id": "size-byte-is-a-rule-not-a-table",
+      "severity": "unstated",
+      "status": "open",
+      "topic": "How to declare a size the manual's table does not list.",
+      "documentSays": {
+        "rung": 1,
+        "claim": "A five row table covering 3 to 64 megabit, and nothing below or above it.",
+        "quote": "ROM Size (FFD7H). The program ROM size is stored at this address. Select the appropriate code from the table below.",
+        "source": "SNES Development Manual Book 1, manual page 1-2-19"
+      },
+      "packageFollows": "the rule the table implies",
+      "consequence": "This package computes the base two logarithm of the size in kilobytes, rounded up, which reproduces every row printed and also answers for sizes the table does not cover.",
+      "why": "A table with five rows cannot be the whole rule, because cartridges smaller than 3 megabit exist and carry a size byte. Extending by the pattern the printed rows follow is a smaller invention than picking a nearest row.",
+      "wouldSettleIt": [
+        "A Nintendo document giving the rule as a formula, or a table with more rows."
+      ]
+    },
+    {
+      "id": "copier-stubs-undocumented",
+      "severity": "outOfScope",
+      "status": "closed",
+      "topic": "The 512 byte block some dumps carry in front of the image.",
+      "documentSays": {
+        "rung": 1,
+        "claim": "Nothing. It is a product of hardware Nintendo did not sell."
+      },
+      "packageFollows": "cartridges",
+      "consequence": "The stub is stripped before anything else happens, so every offset in this file is an offset into the image the console would see.",
+      "wouldReopenIt": "Nothing. There is no Nintendo document to reconcile with, and there never will be."
+    }
+  ]
+}
